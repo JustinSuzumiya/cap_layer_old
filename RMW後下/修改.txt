@@ -1,1 +1,0 @@
-1.page_lru使用的是1條list

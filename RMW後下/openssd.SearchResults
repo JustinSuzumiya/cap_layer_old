@@ -1,4 +1,0 @@
----- ftl_isr Matches (3 in 3 files) ----
-Ftl.c (ftl_greedy):void ftl_isr(void)
-Ftl.h (ftl_greedy):void ftl_isr(void);
-Misc.c (target_spw):		ftl_isr();
