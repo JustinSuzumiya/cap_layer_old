@@ -59,29 +59,29 @@ typedef struct _misc_metadata
     UINT32 cur_write_vpn; // physical page for new write
     UINT32 cur_miscblk_vpn; // current write vpn for logging the misc. metadata
     UINT32 cur_mapblk_vpn[MAPBLKS_PER_BANK]; // current write vpn for logging the age mapping info.
-    UINT32 gc_vblock; // vblock number for garbage collection
+    UINT16 gc_vblock; // vblock number for garbage collection
     UINT32 free_blk_cnt; // total number of free block count
     UINT32 lpn_list_of_cur_vblock[PAGES_PER_BLK]; // logging lpn list of current write vblock for GC
     UINT32 lpn_list_of_gc_vblock[PAGES_PER_BLK];
-    UINT32 gc_backup;
-    UINT32 gc_backup_for_gc;
-    UINT32 cur_freevpn ;
-    UINT32 gc_vblock_vcount;
+    UINT16 gc_backup;
+    UINT16 gc_backup_for_gc;
+    UINT8 cur_freevpn ;
+    UINT8 gc_vblock_vcount;
     UINT8  gcing;
     UINT8  gc_over;
-    UINT32 victim_block ;
-    UINT32 reserve_vcount ;
+    UINT16 victim_block ;
+    UINT16 reserve_vcount ;
     UINT32 src_page ;
-    UINT32 target_block ;
-    UINT32 target_page ;
-    UINT8  you_need_read ;
+//    UINT32 target_block ;
+//   UINT32 target_page ;
+//    UINT8  you_need_read ;
 } misc_metadata; // per bank
 
 //----------------------------------
 // FTL metadata (maintain in SRAM)
 //----------------------------------
 static misc_metadata  g_misc_meta[NUM_BANKS];
-static ftl_statistics g_ftl_statistics[NUM_BANKS];
+//static ftl_statistics g_ftl_statistics[NUM_BANKS];
 static UINT32		  g_bad_blk_count[NUM_BANKS];
 
 
@@ -165,18 +165,19 @@ static void sanity_check(void)
                               + LRU_BYTES + HASH_TABLE_BYTES + BLK_TABLE_BYTES
                               + gc_last_page_BYTES + bank_list_BYTES + last_page_BYTES + wbuf_vpage_BYTES + RMW_page_BYTES
                               + RMW_target_bank_BYTES + lru_list_lpn_BYTES + lru_list_prev_BYTES + lru_list_next_BYTES
-                              + lru_list_bank_prev_BYTES + lru_list_bank_next_BYTES + lru_list_in_cap_BYTES + P_TYPE_BYTES
-                              + P_BANK_BYTES + P_VBLOCK_BYTES + P_PAGE_NUM_BYTES + P_SECT_OFFSET_BYTES + P_NUM_SECTORS_BYTES
+                              + lru_list_bank_prev_BYTES + lru_list_bank_next_BYTES + lru_list_in_cap_BYTES
+                              + P_TYPE_BYTES + P_BANK_BYTES + P_VBLOCK_BYTES + P_PAGE_NUM_BYTES + P_SECT_OFFSET_BYTES + P_NUM_SECTORS_BYTES
                               + P_BUF_ADDR_BYTES + P_G_FTL_RW_BUF_ID_BYTES + P_SRC_VBLOCK_BYTES + P_SRC_PAGE_BYTES + P_DST_VBLOCK_BYTES
                               + P_DST_PAGE_BYTES + P_NEXT_NODE_BYTES + P_PREV_NODE_BYTES + P_ISSUE_FLAG_BYTES + P_LPN_BYTES
-                              + P_ID_BYTES + P_BANK_STATE_BYTES;/*+ P_CAP_BUFFER_BYTES + WBUF_VDATA_BYTES + P_CAP_R_BUFFER_BYTES + P_CAP_W_BUFFER_BYTES
+                              + P_ID_BYTES + P_BANK_STATE_BYTES;
+                              /*+ P_CAP_BUFFER_BYTES + WBUF_VDATA_BYTES + P_CAP_R_BUFFER_BYTES + P_CAP_W_BUFFER_BYTES
                               + P_CAP_BITMAP_BYTES + P_P2L_BUFFER_BYTES + P_L2P_BUFFER_BYTES;*/
 
     if ((dram_requirement > DRAM_SIZE) || // DRAM metadata size check
             (sizeof(misc_metadata) > BYTES_PER_PAGE)) // misc metadata size check
     {
         led_blink();
-	uart_printf("no enough dram");
+        uart_printf("no enough dram");
         while (1);
     }
 }
@@ -394,9 +395,9 @@ void ftl_read(UINT32 const lba, UINT32 const num_sectors)
                      LRU_ADDR + (id* BYTES_PER_PAGE) + (sect_offset * BYTES_PER_SECTOR),
                      num_sectors_to_read * BYTES_PER_SECTOR);
 
-	#if OPTION_FTL_TEST == 0
+#if OPTION_FTL_TEST == 0
             while (next_read_buf_id == GETREG(SATA_RBUF_PTR));	// wait if the read buffer is full (slow host)
-	#endif
+#endif
 
             flash_finish();
 
@@ -413,9 +414,9 @@ void ftl_read(UINT32 const lba, UINT32 const num_sectors)
                      LRU_ADDR + (id* BYTES_PER_PAGE) + (sect_offset * BYTES_PER_SECTOR),
                      num_sectors_to_read * BYTES_PER_SECTOR);
 
-	#if OPTION_FTL_TEST == 0
+#if OPTION_FTL_TEST == 0
             while (next_read_buf_id == GETREG(SATA_RBUF_PTR));	// wait if the read buffer is full (slow host)
-	#endif
+#endif
 
             flash_finish();
 
@@ -431,13 +432,13 @@ void ftl_read(UINT32 const lba, UINT32 const num_sectors)
             {
                 ++user_read;
                 //uart_printf("user_read=%d",user_read);
-				while(canEvict(0) != 1);
+                while(canEvict(0) != 1);
                 nand_page_ptread_to_host(bank,
                                          vpn / PAGES_PER_BLK,
                                          vpn % PAGES_PER_BLK,
                                          sect_offset,
                                          num_sectors_to_read);
-				set_bank_state(bank, 0);
+                set_bank_state(bank, 0);
 
             }
             // The host is requesting to read a logical page that has never been written to.
@@ -445,9 +446,9 @@ void ftl_read(UINT32 const lba, UINT32 const num_sectors)
             {
                 UINT32 next_read_buf_id = (g_ftl_read_buf_id + 1) % NUM_RD_BUFFERS;
 
-		#if OPTION_FTL_TEST == 0
+#if OPTION_FTL_TEST == 0
                 while (next_read_buf_id == GETREG(SATA_RBUF_PTR));	// wait if the read buffer is full (slow host)
-		#endif
+#endif
 
                 // fix bug @ v.1.0.6
                 // Send 0xFF...FF to host when the host request to read the sector that has never been written.
@@ -471,6 +472,7 @@ void ftl_read(UINT32 const lba, UINT32 const num_sectors)
 }
 UINT32 flash_write=0, gc_write=0, user_write=0, flash_read, erase_count=0,lefthole=0,righthole=0,no_writeflag=1 , limit = 0;
 UINT32 ff_flag = 0 ;
+UINT32 merge_cnt = 0;
 void ftl_write(UINT32 const lba, UINT32 const num_sectors)
 {
     UINT32 remain_sects, num_sectors_to_write;
@@ -490,9 +492,9 @@ void ftl_write(UINT32 const lba, UINT32 const num_sectors)
 
     while (remain_sects != 0)
     {
-	#if OPTION_FTL_TEST == 0
+#if OPTION_FTL_TEST == 0
         while (g_ftl_write_buf_id == GETREG(SATA_WBUF_PTR));
-	#endif
+#endif
 
         if ((sect_offset + remain_sects) < SECTORS_PER_PAGE)
         {
@@ -521,31 +523,34 @@ void ftl_write(UINT32 const lba, UINT32 const num_sectors)
     {
         UINT32 totalTime = ptimer_stop_and_uart_print();
         long double execTime = 0; //ms
-	 execTime = erase_count*3.171 + gc_write*1.5255 + flash_write*1.319 + (flash_read + user_read)*0.7755;
-	 uart_printf("idle time: %lf", 1-execTime / ((long double)totalTime/1000*NUM_BANKS));
+        execTime = erase_count*3.171 + gc_write*1.5255 + flash_write*1.319 + (flash_read + user_read)*0.7755;
+        uart_printf("idle time: %lf", 1-execTime / ((long double)totalTime/1000*NUM_BANKS));
         /*if(g_ftl_statistics[0].gc_cnt>1000)
         	uart_printf("gc_cnt bank[0]=%d",g_ftl_statistics[0].gc_cnt);
         if(g_ftl_statistics[1].gc_cnt>1000)
         	uart_printf("gc_cnt bank[1]=%d",g_ftl_statistics[1].gc_cnt);
         uart_printf("user_write=%d",user_write);
         */
+        uart_printf("user_write=%d",user_write);
         uart_printf("flash_write = %d", flash_write);
         uart_printf("gc_write = %d", gc_write);
         uart_printf("flash_read+user_read = %d", flash_read + user_read);
         uart_printf("erase_count = %d", erase_count);
+	 uart_printf("merge_cnt = %d", merge_cnt);	
         /*
         uart_printf("left hole=%d",lefthole);
         uart_printf("right hole=%d",righthole);
-*/
+        */
     }
 
 }
 UINT32 target = 0 , RMW_page_read = NUM_BANKS;
 static UINT8 cnt = 0;
 static UINT8 in = 0;
+static UINT32 time = 0;
 static void write_page(UINT32 const lpn, UINT32 const sect_offset, UINT32 const num_sectors)
 {
-	
+
     //uart_printf("write lpn: %d",lpn);
     CHECK_LPAGE(lpn);
     ASSERT(sect_offset < SECTORS_PER_PAGE);
@@ -571,8 +576,9 @@ static void write_page(UINT32 const lpn, UINT32 const sect_offset, UINT32 const 
     //  g_ftl_statistics[bank].page_wcount++;
     UINT32 page_id = findLRU(lpn) ;
     //LRU hit
-    if(page_id != 0xFFFF)
+    if(page_id != 0xFFFF && page_id == LRU_head)
     {
+    	++merge_cnt;
         //copy from SATA_W_BUF to LRU_BUF
         //if(no_writeflag)
         if(user_write <= 3)
@@ -581,21 +587,21 @@ static void write_page(UINT32 const lpn, UINT32 const sect_offset, UINT32 const 
                      num_sectors * BYTES_PER_SECTOR
                     );
 
-	#if RMW_flag == 2
-        _set_bit_dram_more(wbuf_vpage_ADDR + page_id * SECTORS_PER_PAGE / 8,sect_offset ,num_sectors);
-	#endif
+#if RMW_flag == 2
+        _set_bit_dram_more(wbuf_vpage_ADDR + page_id * SECTORS_PER_PAGE / 8, sect_offset , num_sectors);
+#endif
 
-        updateLRU(lpn);
+        //updateLRU(lpn);
 
-	#if static_binding
-        updateBANK(lpn);
-	#endif
+#if static_binding
+        //updateBANK(lpn);
+#endif
 
     }
     //LRU miss
     else
     {
-	#if RMW_flag == 1
+#if RMW_flag == 1
         if(RMW_page_read != NUM_BANKS)
         {
             while ((GETREG(WR_STAT) & 0x00000001) != 0);
@@ -603,14 +609,12 @@ static void write_page(UINT32 const lpn, UINT32 const sect_offset, UINT32 const 
 
             RMW_page_read = NUM_BANKS ;
         }
-	#endif
+#endif
 
         //if full, select LRU block which is not current gc_block or current write_block
         UINT8 all_cap_full = 0;
         while(fullLRU())
         {
-
-
             //uart_printf("size=%d",LRU_size);
             UINT32 vlpn ;
             UINT32 vbank ;
@@ -626,7 +630,6 @@ static void write_page(UINT32 const lpn, UINT32 const sect_offset, UINT32 const 
                     target = (target+1) % NUM_BANKS;
                     continue;
                 }
-		
 
 
                 UINT32 last_page_flag = check_GC(vbank) ;
@@ -665,41 +668,31 @@ static void write_page(UINT32 const lpn, UINT32 const sect_offset, UINT32 const 
 
                 }
                 */
-                #if static_binding
-	                if(g_last_page[vbank].bank_tail == 0xFFFF)
-	                {
-	                    target = (target+1) % NUM_BANKS;
-	                    continue;
-	                }
-		  #endif
+#if static_binding
+                if(g_last_page[vbank].bank_tail == 0xFFFF)
+                {
+                    target = (target+1) % NUM_BANKS;
+                    continue;
+                }
+#endif
                 target = (target+1) % NUM_BANKS;
                 ///////////
 
                 UINT32 victim_current ;
+
+                if(!all_cap_full && cap_is_full(vbank))
+                    continue;
 				
-		   if(!all_cap_full && cap_is_full(vbank))
-		   	continue;
-		   /*
-                if(++cnt == 0)
-		  {
-			if(in == 0)
-			{
-				ptimer_start_1();
-				in = 1;
-			}
-			else
-			{
-				uart_printf("write_page time %u", ptimer_stop_and_uart_print_1()>>8);
-				in = 0;
-			}
-		}*/
-		#if static_binding
+
+				
+				
+#if static_binding
                 vlpn = get_lru_lpn(g_last_page[vbank].bank_tail);//LRU_list[g_last_page[vbank].bank_tail].lpn;
                 victim_current = g_last_page[vbank].bank_tail;
 
-              
 
-		#endif
+
+#endif
 
                 ASSERT(g_misc_meta[vbank].gcing == 0);
                 UINT32 old_bank = get_num_bank(vlpn)  ;
@@ -730,8 +723,8 @@ static void write_page(UINT32 const lpn, UINT32 const sect_offset, UINT32 const 
                                          SECTORS_PER_PAGE,
                                          LRU_ADDR + victim_current * BYTES_PER_PAGE,
                                          0);
-			#endif	
-						++flash_read;
+			#endif
+                        ++flash_read;
                         _set_bit_dram_more(wbuf_vpage_ADDR + victim_current * SECTORS_PER_PAGE / 8, 0 , SECTORS_PER_PAGE);
                     }
                     else
@@ -740,7 +733,7 @@ static void write_page(UINT32 const lpn, UINT32 const sect_offset, UINT32 const 
                         uart_printf("old_bank = %d", old_bank);
                         ASSERT(static_binding != 1);
                         insertTAIL_bankLRU(vlpn);
-                        g_misc_meta[vbank].you_need_read = 1 ;
+                  //      g_misc_meta[vbank].you_need_read = 1 ;
                     }
 
                 }
@@ -753,7 +746,8 @@ static void write_page(UINT32 const lpn, UINT32 const sect_offset, UINT32 const 
                     ASSERT(get_vcount(vbank,new_block) < (PAGES_PER_BLK - 1));
                     //if(no_writeflag)
                     //uart_printf("%d", vlpn);
-		#if cap
+					
+				#if cap
                     cap_node node;
                     node.type = NAND_PAGE_PROGRAM;
                     node.bank = vbank;
@@ -763,14 +757,14 @@ static void write_page(UINT32 const lpn, UINT32 const sect_offset, UINT32 const 
                     node.id = victim_current;
                     node.lpn = vlpn;
                     cap_insert(vbank, node);
-		#else
+				#else
                     nand_page_program(vbank,
                                       new_block,
                                       new_page_num,
                                       LRU_ADDR + (victim_current * BYTES_PER_PAGE)
                                      );
-		#endif
-			
+				#endif
+				
                     ++flash_write;
 
                     if(get_gc_vblock(old_bank) == get_vpn(vlpn)/PAGES_PER_BLK)
@@ -788,19 +782,21 @@ static void write_page(UINT32 const lpn, UINT32 const sect_offset, UINT32 const 
                     set_vpn(vlpn, new_vpn);
                     set_vcount(vbank, new_block, get_vcount(vbank, new_block) + 1);
 
-		#if static_binding
-                    delete_bankLRU(vlpn);
-		#else
-                    write_dram_32(RMW_target_bank_ADDR + victim_current * sizeof(UINT32),NUM_BANKS);
-                    _write_dram_32((RMW_page_ADDR + vbank * sizeof(UINT32)),NUM_LPAGES);
-		#endif
+#if static_binding
+                    delete_bankLRU(victim_current);
+#else
+                    write_dram_32(RMW_target_bank_ADDR + victim_current * sizeof(UINT32), NUM_BANKS);
+                    write_dram_32((RMW_page_ADDR + vbank * sizeof(UINT32)), NUM_LPAGES);
+#endif
 
-                    deleteLRU(vlpn);
-                    deleteHash(vlpn);
-			//break;
+                    deleteLRU(victim_current);
+                    //deleteLRU(vlpn);
+                    deleteHash(victim_current);
+                    //deleteHash(vlpn);
+                    //break;
                 }
             }
-		all_cap_full = 1;
+            all_cap_full = 1;
         }
         // if old data already exist,
         //-------------------------------------------------------------
@@ -813,9 +809,9 @@ static void write_page(UINT32 const lpn, UINT32 const sect_offset, UINT32 const 
         UINT16 id = insertHeadLRU(lpn);
         insertHash(lpn, id);
 
-	#if static_binding
+#if static_binding
         insertHEAD_bankLRU(lpn);
-	#endif
+#endif
 
         if (old_vpn != NULL )
         {
@@ -825,7 +821,7 @@ static void write_page(UINT32 const lpn, UINT32 const sect_offset, UINT32 const 
             // Thus, read the left/right hole sectors of a valid page and copy into the write buffer.
             // And then, program whole valid data
             //--------------------------------------------------------------------------------------
-	#if RMW_flag == 1
+#if RMW_flag == 1
             if (num_sectors != SECTORS_PER_PAGE)
             {
 
@@ -834,19 +830,19 @@ static void write_page(UINT32 const lpn, UINT32 const sect_offset, UINT32 const 
                     RMW_page_read = bank ;
 
                 }
-		#if cap
-                    cap_node node;
-                    node.type = NAND_PAGE_PTREAD;
-                    node.bank = bank;
-                    node.vblock = vblock;
-                    node.page_num = page_num;
-                    node.sect_offset = 0;
-                    node.num_sectors = SECTORS_PER_PAGE;
-                    node.buf_addr = LRU_ADDR + id * BYTES_PER_PAGE;
-                    node.issue_flag = 0;
-                    node.lpn = 0xFFFFFFFF;
-                    cap_insert(bank, node);
-		#else
+#if cap
+                cap_node node;
+                node.type = NAND_PAGE_PTREAD;
+                node.bank = bank;
+                node.vblock = vblock;
+                node.page_num = page_num;
+                node.sect_offset = 0;
+                node.num_sectors = SECTORS_PER_PAGE;
+                node.buf_addr = LRU_ADDR + id * BYTES_PER_PAGE;
+                node.issue_flag = 0;
+                node.lpn = 0xFFFFFFFF;
+                cap_insert(bank, node);
+#else
                 nand_page_ptread(bank,
                                  vblock,
                                  page_num,
@@ -854,15 +850,15 @@ static void write_page(UINT32 const lpn, UINT32 const sect_offset, UINT32 const 
                                  SECTORS_PER_PAGE,
                                  LRU_ADDR + (id * BYTES_PER_PAGE),
                                  0);
-		#endif
-				++flash_read;
+#endif
+                ++flash_read;
                 ff_flag = 0 ;
 
             }
 
-	#elif RMW_flag == 2
+#elif RMW_flag == 2
             _set_bit_dram_more(wbuf_vpage_ADDR + id * SECTORS_PER_PAGE / 8,sect_offset ,num_sectors);
-	#endif
+#endif
 
         }
 
@@ -960,7 +956,7 @@ static UINT32 check_GC(UINT32 const bank)
         // thus, we persistenly write a lpn list into last page of vblock.
         mem_copy(gc_last_page_ADDR + bank * BYTES_PER_PAGE, g_misc_meta[bank].lpn_list_of_cur_vblock, sizeof(UINT32) * PAGES_PER_BLK);
         // fix minor bug
-	#if 0//cap
+#if 0//cap
         cap_node node;
         node.type = NAND_PAGE_PTPROGRAM;
         node.bank = bank;
@@ -972,19 +968,19 @@ static UINT32 check_GC(UINT32 const bank)
         node.lpn = 0xFFFFFFFF;
         cap_insert(bank, node);
 
-	#else
-		#if cap
-		while(canEvict(1) != 1);
-		#endif
+#else
+#if cap
+        while(canEvict(1) != 1);
+#endif
         nand_page_ptprogram(bank,
                             vblock,
                             PAGES_PER_BLK - 1,
                             0,
                             ((sizeof(UINT32) * PAGES_PER_BLK + BYTES_PER_SECTOR - 1 ) / BYTES_PER_SECTOR),
                             gc_last_page_ADDR + bank * BYTES_PER_PAGE);
-		set_bank_state(bank, 1);
-	#endif
-		++flash_write;
+        set_bank_state(bank, 1);
+#endif
+        ++flash_write;
         while ((GETREG(WR_STAT) & 0x00000001) != 0);
         mem_set_sram(g_misc_meta[bank].lpn_list_of_cur_vblock, 0x00000000, sizeof(UINT32) * PAGES_PER_BLK);
 
@@ -1053,9 +1049,9 @@ static UINT32 garbage_collection(UINT32 const bank)
         {
             vt_vblock = get_vt_vblock(bank);
             g_misc_meta[bank].victim_block  = vt_vblock;
-		#if 0
-		#else
-			while(canEvict(0) != 1);
+#if 0
+#else
+            while(canEvict(0) != 1);
             nand_page_ptread(bank,
                              vt_vblock,
                              PAGES_PER_BLK - 1,
@@ -1063,9 +1059,9 @@ static UINT32 garbage_collection(UINT32 const bank)
                              ((sizeof(UINT32) * PAGES_PER_BLK + BYTES_PER_SECTOR - 1 ) / BYTES_PER_SECTOR),
                              last_page_ADDR + sizeof(UINT32) * bank * PAGES_PER_BLK,
                              2);
-			set_bank_state(bank, 0);
-		#endif
-			++flash_read;
+            set_bank_state(bank, 0);
+#endif
+            ++flash_read;
             //nand_page_ptread(bank, vt_vblock, PAGES_PER_BLK - 1, 0,
             //((sizeof(UINT32) * PAGES_PER_BLK + BYTES_PER_SECTOR - 1 ) / BYTES_PER_SECTOR),FTL_BUF(bank), RETURN_WHEN_DONE);
             //		mem_copy(g_misc_meta[bank].lpn_list_of_cur_vblock,FTL_BUF(bank), sizeof(UINT32) * PAGES_PER_BLK);
@@ -1109,30 +1105,30 @@ static UINT32 garbage_collection(UINT32 const bank)
                 //uart_printf("change");
                 mem_copy(FTL_BUF(bank), g_misc_meta[bank].lpn_list_of_gc_vblock, sizeof(UINT32) * PAGES_PER_BLK);
                 UINT32 vblock = (free_vpn / PAGES_PER_BLK) ;
-		#if 0//cap
-			cap_node node;
-			node.type = NAND_PAGE_PTPROGRAM;
-			node.bank = bank;
-			node.vblock = vblock;
-			node.page_num = PAGES_PER_BLK - 1;
-			node.sect_offset = 0;
-			node.num_sectors =  (sizeof(UINT32) * PAGES_PER_BLK + BYTES_PER_SECTOR - 1 ) / BYTES_PER_SECTOR;
-			node.buf_addr = FTL_BUF(bank);
-			cap_insert(bank, node);
-		#else
-			#if cap
-			while(canEvict(1) != 1);
-			#endif
-			nand_page_ptprogram(bank,
-								vblock,
-								PAGES_PER_BLK - 1,
-								0,
-								((sizeof(UINT32) * PAGES_PER_BLK + BYTES_PER_SECTOR - 1 ) / BYTES_PER_SECTOR),
-								FTL_BUF(bank)
-							   );
-			set_bank_state(bank, 1);
-		#endif
-			++flash_write;
+#if 0//cap
+                cap_node node;
+                node.type = NAND_PAGE_PTPROGRAM;
+                node.bank = bank;
+                node.vblock = vblock;
+                node.page_num = PAGES_PER_BLK - 1;
+                node.sect_offset = 0;
+                node.num_sectors =  (sizeof(UINT32) * PAGES_PER_BLK + BYTES_PER_SECTOR - 1 ) / BYTES_PER_SECTOR;
+                node.buf_addr = FTL_BUF(bank);
+                cap_insert(bank, node);
+#else
+#if cap
+                while(canEvict(1) != 1);
+#endif
+                nand_page_ptprogram(bank,
+                                    vblock,
+                                    PAGES_PER_BLK - 1,
+                                    0,
+                                    ((sizeof(UINT32) * PAGES_PER_BLK + BYTES_PER_SECTOR - 1 ) / BYTES_PER_SECTOR),
+                                    FTL_BUF(bank)
+                                   );
+                set_bank_state(bank, 1);
+#endif
+                ++flash_write;
                 // mem_set_sram(g_misc_meta[bank].lpn_list_of_gc_vblock, 0x00000000, sizeof(UINT32) * PAGES_PER_BLK);
                 g_misc_meta[bank].gc_backup = gc_backup_vblock;
                 set_vcount(bank,vblock,g_misc_meta[bank].gc_vblock_vcount);
@@ -1171,7 +1167,7 @@ static UINT32 garbage_collection(UINT32 const bank)
             //if page is in write buffer ,copy to flash
 
             UINT32 copy_flag = 0;
-	#if cap
+#if cap
             cap_node node;
             node.type = NAND_PAGE_COPYBACK;
             node.bank = bank;
@@ -1181,18 +1177,20 @@ static UINT32 garbage_collection(UINT32 const bank)
             node.dst_page = free_vpn % PAGES_PER_BLK;
             node.lpn = 0xFFFFFFFF;
             cap_insert(bank, node);
-	#else
+#else
             nand_page_copyback(bank,
                                vt_vblock,
                                src_page,
                                free_vpn / PAGES_PER_BLK,
                                free_vpn % PAGES_PER_BLK);
-	#endif
+#endif
+	/*
             if(copy_flag)
             {
                 g_misc_meta[bank].target_block =  free_vpn / PAGES_PER_BLK ;
                 g_misc_meta[bank].target_page =  free_vpn % PAGES_PER_BLK ;
             }
+      */
             gc_write++;
 
             //  ASSERT((free_vpn / PAGES_PER_BLK) == gc_vblock);
@@ -1215,16 +1213,16 @@ static UINT32 garbage_collection(UINT32 const bank)
         //	mem_set_sram(g_misc_meta[bank].lpn_list_of_cur_vblock, 0x00000000, sizeof(UINT32) * PAGES_PER_BLK);
 
         // 3. erase victim block
-	#if cap
+#if cap
         cap_node node;
         node.type = NAND_BLOCK_ERASE;
         node.bank = bank;
         node.vblock = vt_vblock;
         node.lpn = 0xFFFFFFFF;
         cap_insert(bank, node);
-	#else
+#else
         nand_block_erase(bank, vt_vblock);
-	#endif
+#endif
         erase_count++;
         g_misc_meta[bank].src_page = 0;
         /*     uart_printf("gc page count : %d", vcount); */
@@ -1296,6 +1294,8 @@ static void format(void)
     uart_printf("LRU_BUF_SIZE: %d KB", LRU_BYTES / 1024);
     uart_printf("HASH_TABLE_SIZE: %d KB", HASH_TABLE_BYTES / 1024);
     uart_printf("BLK_TABLE_SIZE: %d KB", BLK_TABLE_BYTES / 1024);
+	
+    uart_printf("g_misc_meta: %d KB", sizeof(g_misc_meta ) / 1024);
     //----------------------------------------
     // initialize DRAM metadata
     //----------------------------------------
@@ -1304,8 +1304,8 @@ static void format(void)
     mem_set_dram(LRU_ADDR, 0xFFFFFFFF, LRU_BYTES);
     mem_set_dram(HASH_TABLE_ADDR, 0xFFFFFFFF, HASH_TABLE_BYTES);
     mem_set_dram(BLK_TABLE_ADDR, 0xFFFFFFFF, BLK_TABLE_BYTES);
-	//mem_set_dram(P_LPN_ADDR, 0xFFFFFFFF, P_LPN_BYTES);
-	mem_set_dram(P_BANK_STATE_ADDR, 0xFFFFFFFF, P_BANK_STATE_BYTES);
+    //mem_set_dram(P_LPN_ADDR, 0xFFFFFFFF, P_LPN_BYTES);
+    //mem_set_dram(P_BANK_STATE_ADDR, 0xFFFFFFFF, P_BANK_STATE_BYTES);
     //assign fake vpn
     /*UINT32 lpn=0;
     UINT32 vpn=0;
@@ -1431,9 +1431,8 @@ static void format(void)
                 first_block++;
 
 
-            }
-            while (get_vcount(i, first_block) == VC_MAX);
-            set_new_write_vpn(i,first_block * PAGES_PER_BLK);
+            }while (get_vcount(i, first_block) == VC_MAX);
+            set_new_write_vpn(i, first_block * PAGES_PER_BLK);
 
 
 
@@ -1474,7 +1473,7 @@ static void init_metadata_sram(void)
         g_misc_meta[bank].reserve_vcount = PAGES_PER_BLK ;
         g_misc_meta[bank].gcing = 0;
         g_misc_meta[bank].gc_over = 0;
-        g_misc_meta[bank].you_need_read = 0 ;
+        //g_misc_meta[bank].you_need_read = 0 ;
         write_dram_32(RMW_page_ADDR + bank * sizeof(UINT32),NUM_LPAGES);
         ////
 

@@ -36,7 +36,7 @@ UINT16 getFromFreeList()
 	LRU_list[LRU_list[free_head].next].prev = LRU_list[free_head].prev;
 	LRU_list[LRU_list[free_head].prev].next = LRU_list[free_head].next;
 	*/
-	while(get_lru_in_cap_queue(free_head) != 0)
+	while(get_lru_in_cap(free_head) != 0)
 	{
 		free_head = get_lru_next(free_head);
 		free_tail = get_lru_next(free_tail);
@@ -152,9 +152,9 @@ UINT16 insertHeadLRU(UINT32 const lpn)
 
 			set_lru_next(new_id,LRU_head);
 			set_lru_prev(new_id,LRU_tail);
-			LRU_head=new_id;
+			LRU_head = new_id;
 		}
-		set_lru_lpn(new_id,lpn);
+		set_lru_lpn(new_id, lpn);
 		//LRU_list[new_id].lpn = lpn;
 		
 		//uart_printf("insert lpn:%d at id:%d", lpn , findLRU(lpn));
@@ -166,6 +166,53 @@ UINT16 insertHeadLRU(UINT32 const lpn)
 	{
 		return deleteLRU(LRU_tail);
 	}*/
+}
+
+UINT16 insertTailLRU(UINT32 const lpn) 
+{
+	//uart_printf("===insertLRU===lpn = %d",lpn);
+
+	//if(!fullLRU()) // have free node 在ftl.c處理
+	{	
+		UINT16 new_id = getFromFreeList();
+		//insertHash(lpn, new_id ); 在ftl.c處理
+		
+		if( LRU_size == 1) // LRU list is empty
+		{
+			LRU_head=new_id;
+			LRU_tail=new_id;
+			/*
+			LRU_list[new_id].next=new_id;
+			LRU_list[new_id].prev=new_id;
+			*/
+			
+			set_lru_next(new_id,new_id);
+			set_lru_prev(new_id,new_id);
+			//LRU_list[new_id]=new_id;
+		}
+		else
+		{
+			/*
+			LRU_list[LRU_head].prev=new_id;
+			LRU_list[LRU_tail].next=new_id;
+			
+			LRU_list[new_id].next=LRU_head;
+			LRU_list[new_id].prev=LRU_tail;
+			*/
+			set_lru_prev(LRU_head,new_id);
+			set_lru_next(LRU_tail,new_id);
+
+			set_lru_next(new_id,LRU_head);
+			set_lru_prev(new_id,LRU_tail);
+			LRU_tail = new_id;
+		}
+		set_lru_lpn(new_id, lpn);
+		//LRU_list[new_id].lpn = lpn;
+		
+		//uart_printf("insert lpn:%d at id:%d", lpn , findLRU(lpn));
+		
+		return new_id; //return insert id
+	}
 }
 
 UINT16 insertHEAD_bankLRU(UINT32 const lpn)
@@ -200,7 +247,7 @@ UINT16 insertHEAD_bankLRU(UINT32 const lpn)
 		set_lru_bank_next(id,g_last_page[bank].bank_head);
 		set_lru_bank_prev(id,g_last_page[bank].bank_tail);
 		
-		g_last_page[bank].bank_head=id;
+		g_last_page[bank].bank_head = id;
 	}
 	g_last_page[bank].bank_size ++ ;
 }
@@ -219,21 +266,21 @@ UINT16 insertTAIL_bankLRU(UINT32 const lpn)
 	}
 	else
 	{
-		set_lru_bank_prev(g_last_page[bank].bank_head,id);
-		set_lru_bank_next(g_last_page[bank].bank_tail,id);
+		set_lru_bank_prev(g_last_page[bank].bank_head, id);
+		set_lru_bank_next(g_last_page[bank].bank_tail, id);
 	
-		set_lru_bank_next(id,g_last_page[bank].bank_head);
-		set_lru_bank_prev(id,g_last_page[bank].bank_tail);
+		set_lru_bank_next(id, g_last_page[bank].bank_head);
+		set_lru_bank_prev(id, g_last_page[bank].bank_tail);
 		g_last_page[bank].bank_tail = id;
 	}
 	g_last_page[bank].bank_size ++ ;
 }
 
-UINT32 deleteLRU(UINT32 const lpn)
+UINT32 deleteLRU(UINT32 const victim_current)
 {
-	UINT32 victimID = findLRU(lpn);
+	UINT32 victimID = victim_current;
 	UINT32 victimLPN = get_lru_lpn(victimID);//LRU_list[victimID].lpn;
-	ASSERT(victimID != 0xFFFF);
+	//ASSERT(victimID != 0xFFFF);
 	//if(LRU_head == LRU_tail) // LRU list becomes empty
 	if(LRU_size == 1)
 	{
@@ -258,11 +305,12 @@ UINT32 deleteLRU(UINT32 const lpn)
 	return victimLPN; // for delete hash table entry
 }
 
-UINT32 delete_bankLRU(UINT32 const lpn)
+UINT32 delete_bankLRU(UINT32 const victim_current)
 {
-	UINT32 victimID = findLRU(lpn);
+	UINT32 victimID = victim_current;
+	UINT32 lpn = get_lru_lpn(victimID);
 	UINT32 bank = get_num_bank(lpn);
-	ASSERT(victimID != 0xFFFF);
+	//ASSERT(victimID != 0xFFFF);
 	if(g_last_page[bank].bank_size == 1)
 	{
 		g_last_page[bank].bank_head =INVALID_ID ; 
@@ -277,8 +325,8 @@ UINT32 delete_bankLRU(UINT32 const lpn)
 	LRU_list[LRU_list[victimID].bank_next].bank_prev = LRU_list[victimID].bank_prev;
 	LRU_list[LRU_list[victimID].bank_prev].bank_next = LRU_list[victimID].bank_next;
 	*/
-	set_lru_bank_prev(get_lru_bank_next(victimID),get_lru_bank_prev(victimID));	
-	set_lru_bank_next(get_lru_bank_prev(victimID),get_lru_bank_next(victimID));
+	set_lru_bank_prev(get_lru_bank_next(victimID), get_lru_bank_prev(victimID));	
+	set_lru_bank_next(get_lru_bank_prev(victimID), get_lru_bank_next(victimID));
 
 	g_last_page[bank].bank_size-- ; 
 	

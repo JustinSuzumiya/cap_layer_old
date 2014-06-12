@@ -21,7 +21,8 @@
 
 #define	FLASH_TYPE		K9LCG08U1M
 #define	DRAM_SIZE		65075200
-#define	BANK_BMP		0x00FF//0x0033//0x3333//0x00330033//0x3333//0x000F//0x1111//0x000F//0x3333//0x0033//0x0011  
+#define	BANK_BMP		0x3333
+//0x00FF//0x1111//0x00330033//0x00FF//0x0033//0x3333//0x000F//0x1111//0x000F//0x3333//0x0033//0x0011  
 #define	CLOCK_SPEED		175000000
 
 #define	OPTION_2_PLANE			1	// 1 = 2-plane mode, 0 = 1-plane mode
@@ -30,7 +31,7 @@
 #define OPTION_UART_DEBUG		1   // 1 = enable UART message output, 0 = disable
 #define OPTION_SLOW_SATA		0	// 1 = SATA 1.5Gbps, 0 = 3Gbps
 #define OPTION_SUPPORT_NCQ		1	// 1 = support SATA NCQ (=FPDMA) for AHCI hosts, 0 = support only DMA mode
-#define OPTION_REDUCED_CAPACITY	0	// reduce the number of blocks per bank for testing purpose
+#define OPTION_REDUCED_CAPACITY	1	// reduce the number of blocks per bank for testing purpose
 
 #define CHN_WIDTH			2 	// 2 = 16bit IO
 #define NUM_CHNLS_MAX		4
@@ -178,7 +179,7 @@ typedef struct
 // #define NUM_LSECTORS	(21168 + ((NUM_PSECTORS) / 2097152 * 1953504)) // 125045424, 9172304(provisioning ratio: 7.3%)
 
 // #define NUM_LSECTORS	(NUM_PSECTORS  / 100 * 86) // 14% provisioning
-#define NUM_LSECTORS	(NUM_PSECTORS  / 100 * 97) // 7% provisioning
+#define NUM_LSECTORS	(NUM_PSECTORS  / 100 * 90) // 7% provisioning
 
 #include "ftl.h"
 #include "misc.h"

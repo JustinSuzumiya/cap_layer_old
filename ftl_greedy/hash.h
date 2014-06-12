@@ -42,6 +42,6 @@ UINT16 get_lru_bank_next(UINT16 id);
 UINT16 get_lru_bank_prev(UINT16 id);
 
 void set_lru_in_cap(UINT16 id, UINT8 value);
-UINT8 get_lru_in_cap_queue(UINT16 id);
+UINT8 get_lru_in_cap(UINT16 id);
 
 #endif

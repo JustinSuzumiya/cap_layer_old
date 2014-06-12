@@ -19,8 +19,8 @@ void init_cap_queue()
 		//cap_free_head[bank] = bank * Q_DEPTH;
 		//cap_free_tail[bank] = (bank + 1) * Q_DEPTH - 1;	
 	}
-	cap_head = INVALID_ID;
-	cap_tail = INVALID_ID;
+	//cap_head = INVALID_ID;
+	//cap_tail = INVALID_ID;
 	/*
 	mem_set_dram(P_LPN_ADDR, 0xFFFFFFFF, P_LPN_BYTES);
 	mem_set_dram(P_BANK_STATE_ADDR, 0xFFFFFFFF, P_BANK_STATE_BYTES);
@@ -52,17 +52,25 @@ UINT16 cap_insert(UINT8 bank, struct cap_node node)
 	
 	//for(UINT8 bank = 0; bank < NUM_BANKS; ++bank )
 	UINT8 victim;
+	static UINT8 cnt = 0;
 	//while((victim = selectVictim()) != 0xFF && currentPower() < LIMIT)
 	{
-		UINT8 j = 0;
-		for(UINT8 i = 0 ; i != NUM_BANKS ; ++i)
-		{
-			if(q_size[i])
-				++j;
-		}
+		
+	#if greedy == 0
+		randomEvict();
+		/*
 		while(j-- && (LIMIT - currentPower())/WRITE_POWER )
 			if((victim = selectVictim()) != 0xFF)
 				cap_delete(victim);
+		*/
+	#else//greedy
+		greedyEvict();
+		/*
+		while(j-- && q_size[buf[victim]] && (LIMIT - currentPower())/WRITE_POWER)
+			cap_delete(buf[victim++]);
+		*/
+	#endif
+		
 	}
 	if(q_size[bank] == Q_DEPTH)
 	{
@@ -90,81 +98,114 @@ UINT16 cap_insert(UINT8 bank, struct cap_node node)
 	//uart_printf("INSERT: id=%d",new_id);
 	/***fill table***/
 	write_dram_8(P_TYPE_ADDR + new_id*sizeof(UINT8), node.type);
-	write_dram_32(P_BANK_ADDR + new_id*sizeof(UINT32), node.bank);
+	write_dram_8(P_BANK_ADDR + new_id*sizeof(UINT8), node.bank);
+	//P_TYPE[new_id] = node.type;
+	//P_BANK[new_id] = node.bank;
 	if(node.type == NAND_PAGE_PTREAD_TO_HOST) //nand_page_ptread_to_host
 	{
 		//uart_printf("\nINSERT capping_read_id = %d\n", node.g_ftl_rw_buf_id);
-		//write_dram_8(P_TYPE_ADDR + new_id*sizeof(UINT8), node.type);
-		//write_dram_32(P_BANK_ADDR + new_id*sizeof(UINT32), node.bank);
+		
 		write_dram_32(P_VBLOCK_ADDR + new_id*sizeof(UINT32), node.vblock);
 		write_dram_32(P_PAGE_NUM_ADDR + new_id*sizeof(UINT32), node.page_num);
 		write_dram_32(P_SECT_OFFSET_ADDR + new_id*sizeof(UINT32), node.sect_offset);
 		write_dram_32(P_NUM_SECTORS_ADDR + new_id*sizeof(UINT32), node.num_sectors);
+		/*
 		//need modify
-		write_dram_32(P_G_FTL_RW_BUF_ID_ADDR + new_id*sizeof(UINT32), node.g_ftl_rw_buf_id);
-		
+		//write_dram_32(P_G_FTL_RW_BUF_ID_ADDR + new_id*sizeof(UINT32), node.g_ftl_rw_buf_id);
+		P_VBLOCK[new_id] = node.vblock;
+		P_PAGE_NUM[new_id] = node.page_num;
+		P_SECT_OFFSET[new_id] = node.sect_offset;
+		P_NUM_SECTORS[new_id] = node.num_sectors;
+		*/
 		//uart_printf("capping_read_id = %d", node.g_ftl_rw_buf_id);
 	}
 	else if(node.type == NAND_PAGE_PTREAD)//nand_page_ptread
 	{
-		//write_dram_8(P_TYPE_ADDR + new_id*sizeof(UINT8), node.type);
-		//write_dram_32(P_BANK_ADDR + new_id*sizeof(UINT32), node.bank);
+		
 		write_dram_32(P_VBLOCK_ADDR + new_id*sizeof(UINT32), node.vblock);
 		write_dram_32(P_PAGE_NUM_ADDR + new_id*sizeof(UINT32), node.page_num);
 		write_dram_32(P_SECT_OFFSET_ADDR + new_id*sizeof(UINT32), node.sect_offset);
 		write_dram_32(P_NUM_SECTORS_ADDR + new_id*sizeof(UINT32), node.num_sectors);
 		write_dram_32(P_BUF_ADDR + new_id*sizeof(UINT32), node.buf_addr);
-		write_dram_16(P_ISSUE_FLAG_ADDR + new_id*sizeof(UINT16), node.issue_flag);
+		write_dram_8(P_ISSUE_FLAG_ADDR + new_id*sizeof(UINT8), node.issue_flag);
+		/*
+		P_VBLOCK[new_id] = node.vblock;
+		P_PAGE_NUM[new_id] = node.page_num;
+		P_SECT_OFFSET[new_id] = node.sect_offset;
+		P_NUM_SECTORS[new_id] = node.num_sectors;
+		P_BUF[new_id] = node.buf_addr;
+		P_ISSUE_FLAG[new_id] = node.issue_flag;
+		*/
 	}
 	else if(node.type == NAND_PAGE_PTPROGRAM_FROM_HOST)//nand_page_ptprogram_from_host
 	{
-		//write_dram_8(P_TYPE_ADDR + new_id*sizeof(UINT8), node.type);
-		//write_dram_32(P_BANK_ADDR + new_id*sizeof(UINT32), node.bank);
+		
 		write_dram_32(P_VBLOCK_ADDR + new_id*sizeof(UINT32), node.vblock);
 		write_dram_32(P_PAGE_NUM_ADDR + new_id*sizeof(UINT32), node.page_num);
 		write_dram_32(P_SECT_OFFSET_ADDR + new_id*sizeof(UINT32), node.sect_offset);
 		write_dram_32(P_NUM_SECTORS_ADDR + new_id*sizeof(UINT32), node.num_sectors);
-		//
-		write_dram_32(P_G_FTL_RW_BUF_ID_ADDR + new_id*sizeof(UINT32), node.g_ftl_rw_buf_id);
+		/*
+		P_VBLOCK[new_id] = node.vblock;
+		P_PAGE_NUM[new_id] = node.page_num;
+		P_SECT_OFFSET[new_id] = node.sect_offset;
+		P_NUM_SECTORS[new_id] = node.num_sectors;
+		*/
+		//my_write_dram_32(P_G_FTL_RW_BUF_ID_ADDR + new_id*sizeof(UINT32), node.g_ftl_rw_buf_id);
 		//uart_printf("capping_write_id = %d", node.g_ftl_rw_buf_id);
 	}
 	else if(node.type == NAND_PAGE_PTPROGRAM)//nand_page_ptprogram
 	{
-		//write_dram_8(P_TYPE_ADDR + new_id*sizeof(UINT8), node.type);
-		//write_dram_32(P_BANK_ADDR + new_id*sizeof(UINT32), node.bank);
+		
 		write_dram_32(P_VBLOCK_ADDR + new_id*sizeof(UINT32), node.vblock);
 		write_dram_32(P_PAGE_NUM_ADDR + new_id*sizeof(UINT32), node.page_num);
 		write_dram_32(P_SECT_OFFSET_ADDR + new_id*sizeof(UINT32), node.sect_offset);
 		write_dram_32(P_NUM_SECTORS_ADDR + new_id*sizeof(UINT32), node.num_sectors);
 		write_dram_32(P_BUF_ADDR + new_id*sizeof(UINT32), node.buf_addr);
+		/*
+		P_VBLOCK[new_id] = node.vblock;
+		P_PAGE_NUM[new_id] = node.page_num;
+		P_SECT_OFFSET[new_id] = node.sect_offset;
+		P_NUM_SECTORS[new_id] = node.num_sectors;
+		P_BUF[new_id] = node.buf_addr;
+		*/
 	}
 	else if(node.type == NAND_PAGE_PROGRAM)//nand_page_program
 	{
-		//write_dram_8(P_TYPE_ADDR + new_id*sizeof(UINT8), node.type);
-		//write_dram_32(P_BANK_ADDR + new_id*sizeof(UINT32), node.bank);
+		
 		write_dram_32(P_VBLOCK_ADDR + new_id*sizeof(UINT32), node.vblock);
 		write_dram_32(P_PAGE_NUM_ADDR + new_id*sizeof(UINT32), node.page_num);
 		write_dram_32(P_BUF_ADDR + new_id*sizeof(UINT32), node.buf_addr);
 		write_dram_16(P_ID_ADDR + new_id*sizeof(UINT16), node.id);
+		/*
+		P_VBLOCK[new_id] = node.vblock;
+		P_PAGE_NUM[new_id] = node.page_num;
+		P_BUF[new_id] = node.buf_addr;
+		P_ID[new_id] = node.id;
+		*/
 		if(node.buf_addr >= LRU_ADDR && node.buf_addr < LRU_ADDR + LRU_BYTES)
 			set_lru_in_cap(node.id, 1);
 		//	LRU_list[node.id].in_cap_queue = 1;
 	}
 	else if(node.type == NAND_PAGE_COPYBACK)//nand_page_copyback
 	{
-		//write_dram_8(P_TYPE_ADDR + new_id*sizeof(UINT8), node.type);
-		//write_dram_32(P_BANK_ADDR + new_id*sizeof(UINT32), node.bank);
+		
 		write_dram_32(P_SRC_VBLOCK_ADDR + new_id*sizeof(UINT32), node.src_vblock);
 		write_dram_32(P_SRC_PAGE_ADDR + new_id*sizeof(UINT32), node.src_page);
 		write_dram_32(P_DST_VBLOCK_ADDR + new_id*sizeof(UINT32), node.dst_vblock);
-		write_dram_32(P_SRC_PAGE_ADDR + new_id*sizeof(UINT32), node.dst_page);
+		write_dram_32(P_DST_PAGE_ADDR + new_id*sizeof(UINT32), node.dst_page);
+		/*
+		P_SRC_VBLOCK[new_id] = node.src_vblock;
+		P_SRC_PAGE[new_id] = node.src_page;
+		P_DST_VBLOCK[new_id] = node.dst_vblock;
+		P_DST_PAGE[new_id] = node.dst_page;
+		*/
 	}
 	else{//nand_block_erase
-		//write_dram_8(P_TYPE_ADDR + new_id*sizeof(UINT8), node.type);
-		//write_dram_32(P_BANK_ADDR + new_id*sizeof(UINT32), node.bank);
 		write_dram_32(P_VBLOCK_ADDR + new_id*sizeof(UINT32), node.vblock);
+		//P_VBLOCK[new_id] = node.vblock;
 	}
 	write_dram_32(P_LPN_ADDR + new_id*sizeof(UINT32), node.lpn);
+	//P_LPN[new_id] = node.lpn;
 	/***************/
 	//uart_printf("=====cap_insert end====");
 	return new_id;
@@ -214,20 +255,34 @@ UINT32 cap_delete(UINT8 __bank) //dispatch fn
 			in = 0;
 		}
 	}*/
+	
 	/* now dispatch flash cmd , read the information of cmd first */
+	
 	type = read_dram_8(P_TYPE_ADDR + victimID*sizeof(UINT8));
+	bank = read_dram_8(P_BANK_ADDR + victimID*sizeof(UINT8));
 	lpn = read_dram_32(P_LPN_ADDR + victimID*sizeof(UINT32));
+	/*
+	type = P_TYPE[victimID];
+	bank = P_BANK[victimID];
+	lpn = P_LPN[victimID];
+	*/
 	if(type == NAND_PAGE_PTREAD_TO_HOST)
 	{
 		//uart_printf("dispatch_nand_page_ptread_to_host");
-		bank = read_dram_32(P_BANK_ADDR + victimID*sizeof(UINT32));
-		vblock = read_dram_32(P_VBLOCK_ADDR + victimID*sizeof(UINT32));
-		page_num = read_dram_32(P_PAGE_NUM_ADDR + victimID*sizeof(UINT32));
-		sect_offset = read_dram_32(P_SECT_OFFSET_ADDR + victimID*sizeof(UINT32));
-		num_sectors = read_dram_32(P_NUM_SECTORS_ADDR + victimID*sizeof(UINT32));
+		
+		vblock		= read_dram_32(P_VBLOCK_ADDR + victimID*sizeof(UINT32));
+		page_num	= read_dram_32(P_PAGE_NUM_ADDR + victimID*sizeof(UINT32));
+		sect_offset	= read_dram_32(P_SECT_OFFSET_ADDR + victimID*sizeof(UINT32));
+		num_sectors	= read_dram_32(P_NUM_SECTORS_ADDR + victimID*sizeof(UINT32));
+		/*
+		vblock		= P_VBLOCK[victimID];
+		page_num	= P_PAGE_NUM[victimID];
+		sect_offset	= P_SECT_OFFSET[victimID];
+		num_sectors	= P_NUM_SECTORS[victimID];
+		*/
 		//need modify
 		//g_ftl_read_buf_id = read_dram_32(P_G_FTL_RW_BUF_ID_ADDR + victimID*sizeof(UINT32));
-		UINT32 temp = read_dram_32(P_G_FTL_RW_BUF_ID_ADDR + victimID*sizeof(UINT32));
+		//UINT32 temp	= read_dram_32(P_G_FTL_RW_BUF_ID_ADDR + victimID*sizeof(UINT32));
 		
 		//uart_printf("dispatch_bank=%d",bank);
 		//uart_printf("dispatch_temp=%d",temp);
@@ -248,15 +303,21 @@ UINT32 cap_delete(UINT8 __bank) //dispatch fn
 	{
 		/*debug*/
 		//uart_printf("dispatch_nand_page_ptread lpn: %d", lpn);
-		/****/
-		bank = read_dram_32(P_BANK_ADDR + victimID*sizeof(UINT32));
-		vblock = read_dram_32(P_VBLOCK_ADDR + victimID*sizeof(UINT32));
-		page_num = read_dram_32(P_PAGE_NUM_ADDR + victimID*sizeof(UINT32));
-		sect_offset = read_dram_32(P_SECT_OFFSET_ADDR + victimID*sizeof(UINT32));
-		num_sectors = read_dram_32(P_NUM_SECTORS_ADDR + victimID*sizeof(UINT32));
-		buf_addr = read_dram_32(P_BUF_ADDR + victimID*sizeof(UINT32));
-		issue_flag = read_dram_16(P_ISSUE_FLAG_ADDR + victimID*sizeof(UINT16));
 		
+		vblock		= read_dram_32(P_VBLOCK_ADDR + victimID*sizeof(UINT32));
+		page_num	= read_dram_32(P_PAGE_NUM_ADDR + victimID*sizeof(UINT32));
+		sect_offset	= read_dram_32(P_SECT_OFFSET_ADDR + victimID*sizeof(UINT32));
+		num_sectors	= read_dram_32(P_NUM_SECTORS_ADDR + victimID*sizeof(UINT32));
+		buf_addr	= read_dram_32(P_BUF_ADDR + victimID*sizeof(UINT32));
+		issue_flag	= read_dram_8(P_ISSUE_FLAG_ADDR + victimID*sizeof(UINT8));
+		/*
+		vblock		= P_VBLOCK[victimID];
+		page_num	= P_PAGE_NUM[victimID];
+		sect_offset	= P_SECT_OFFSET[victimID];
+		num_sectors	= P_NUM_SECTORS[victimID];
+		buf_addr	= P_BUF[victimID];
+		issue_flag	= P_ISSUE_FLAG[victimID];
+		*/
 		//issue nand_page_ptread cmd
 		while(canEvict(0) != 1);
 		nand_page_ptread(bank, vblock, page_num, sect_offset, num_sectors, buf_addr, issue_flag);
@@ -265,14 +326,19 @@ UINT32 cap_delete(UINT8 __bank) //dispatch fn
 	else if(type == NAND_PAGE_PTPROGRAM_FROM_HOST)//no use in write buffer version
 	{
 		//uart_printf("dispatch_nand_page_ptprogram_from_host");
-		bank = read_dram_32(P_BANK_ADDR + victimID*sizeof(UINT32));
-		vblock = read_dram_32(P_VBLOCK_ADDR + victimID*sizeof(UINT32));
-		page_num = read_dram_32(P_PAGE_NUM_ADDR + victimID*sizeof(UINT32));
-		sect_offset = read_dram_32(P_SECT_OFFSET_ADDR + victimID*sizeof(UINT32));
-		num_sectors = read_dram_32(P_NUM_SECTORS_ADDR + victimID*sizeof(UINT32));	
-		UINT32 temp2 = read_dram_32(P_G_FTL_RW_BUF_ID_ADDR + victimID*sizeof(UINT32));
-		//uart_printf("dispatch__write_buf_id = %d",temp2);
 		
+		vblock		= read_dram_32(P_VBLOCK_ADDR + victimID*sizeof(UINT32));
+		page_num	= read_dram_32(P_PAGE_NUM_ADDR + victimID*sizeof(UINT32));
+		sect_offset	= read_dram_32(P_SECT_OFFSET_ADDR + victimID*sizeof(UINT32));
+		num_sectors	= read_dram_32(P_NUM_SECTORS_ADDR + victimID*sizeof(UINT32));	
+		/*
+		vblock		= P_VBLOCK[victimID];
+		page_num	= P_PAGE_NUM[victimID];
+		sect_offset	= P_SECT_OFFSET[victimID];
+		num_sectors	= P_NUM_SECTORS[victimID];
+		*/
+		//UINT32 temp2 = read_dram_32(P_G_FTL_RW_BUF_ID_ADDR + victimID*sizeof(UINT32));
+		//uart_printf("dispatch__write_buf_id = %d",temp2);
 		//issue nand_page_ptprogram_from_host cmd
 		while(canEvict(1) != 1);
 		nand_page_ptprogram_from_host(bank, vblock, page_num, sect_offset, num_sectors);
@@ -281,13 +347,19 @@ UINT32 cap_delete(UINT8 __bank) //dispatch fn
 	else if(type == NAND_PAGE_PTPROGRAM)
 	{	
 		//uart_printf("dispatch_nand_page_ptprogram lpn: %d", lpn);
-		bank = read_dram_32(P_BANK_ADDR + victimID*sizeof(UINT32));
-		vblock = read_dram_32(P_VBLOCK_ADDR + victimID*sizeof(UINT32));
-		page_num = read_dram_32(P_PAGE_NUM_ADDR + victimID*sizeof(UINT32));
-		sect_offset = read_dram_32(P_SECT_OFFSET_ADDR + victimID*sizeof(UINT32));
-		num_sectors = read_dram_32(P_NUM_SECTORS_ADDR + victimID*sizeof(UINT32));
-		buf_addr = read_dram_32(P_BUF_ADDR + victimID*sizeof(UINT32));
 		
+		vblock		= read_dram_32(P_VBLOCK_ADDR + victimID*sizeof(UINT32));
+		page_num	= read_dram_32(P_PAGE_NUM_ADDR + victimID*sizeof(UINT32));
+		sect_offset	= read_dram_32(P_SECT_OFFSET_ADDR + victimID*sizeof(UINT32));
+		num_sectors	= read_dram_32(P_NUM_SECTORS_ADDR + victimID*sizeof(UINT32));
+		buf_addr	= read_dram_32(P_BUF_ADDR + victimID*sizeof(UINT32));
+		/*
+		vblock		= P_VBLOCK[victimID];
+		page_num	= P_PAGE_NUM[victimID];
+		sect_offset	= P_SECT_OFFSET[victimID];
+		num_sectors	= P_NUM_SECTORS[victimID];
+		buf_addr	= P_BUF[victimID];
+		*/
 		//issue nand_page_ptprogram
 		while(canEvict(1) != 1);
 		nand_page_ptprogram(bank, vblock, page_num, sect_offset, num_sectors, buf_addr);
@@ -297,10 +369,14 @@ UINT32 cap_delete(UINT8 __bank) //dispatch fn
 	{
 		//uart_printf("dispatch_nand_page_program lpn: %d", lpn);
 		
-		bank = read_dram_32(P_BANK_ADDR + victimID*sizeof(UINT32));
-		vblock = read_dram_32(P_VBLOCK_ADDR + victimID*sizeof(UINT32));
-		page_num = read_dram_32(P_PAGE_NUM_ADDR + victimID*sizeof(UINT32));
-		buf_addr = read_dram_32(P_BUF_ADDR + victimID*sizeof(UINT32));
+		vblock		= read_dram_32(P_VBLOCK_ADDR + victimID*sizeof(UINT32));
+		page_num	= read_dram_32(P_PAGE_NUM_ADDR + victimID*sizeof(UINT32));
+		buf_addr	= read_dram_32(P_BUF_ADDR + victimID*sizeof(UINT32));
+		/*
+		vblock		= P_VBLOCK[victimID];
+		page_num	= P_PAGE_NUM[victimID];
+		buf_addr	= P_BUF[victimID];
+		*/
 		//uart_printf("merge start");
 		//RMW buffer merge
 		//if(!(_tst_bit_dram_more(P_CAP_BITMAP_ADDR + SECTORS_PER_PAGE * bank / 8)))
@@ -315,6 +391,7 @@ UINT32 cap_delete(UINT8 __bank) //dispatch fn
 		if(buf_addr >= LRU_ADDR && buf_addr < LRU_ADDR + LRU_BYTES)
 		{
 			id = read_dram_16(P_ID_ADDR + victimID*sizeof(UINT16));
+			//id = P_ID[victimID];
 			ASSERT(id != 0xFFFF);
 			set_lru_in_cap(id, 0);
 			//LRU_list[id].in_cap_queue = 0;
@@ -325,12 +402,17 @@ UINT32 cap_delete(UINT8 __bank) //dispatch fn
 	else if(type == NAND_PAGE_COPYBACK)
 	{
 		//uart_printf("dispatch_nand_page_copyback");
-		bank = read_dram_32(P_BANK_ADDR + victimID*sizeof(UINT32));
-		src_vblock = read_dram_32(P_SRC_VBLOCK_ADDR + victimID*sizeof(UINT32));
-		src_page = read_dram_32(P_SRC_PAGE_ADDR + victimID*sizeof(UINT32));
-		dst_vblock = read_dram_32(P_DST_VBLOCK_ADDR + victimID*sizeof(UINT32));
-		dst_page = read_dram_32(P_SRC_PAGE_ADDR + victimID*sizeof(UINT32));
-	
+		
+		src_vblock	= read_dram_32(P_SRC_VBLOCK_ADDR + victimID*sizeof(UINT32));
+		src_page	= read_dram_32(P_SRC_PAGE_ADDR + victimID*sizeof(UINT32));
+		dst_vblock	= read_dram_32(P_DST_VBLOCK_ADDR + victimID*sizeof(UINT32));
+		dst_page	= read_dram_32(P_SRC_PAGE_ADDR + victimID*sizeof(UINT32));
+		/*
+		src_vblock	= P_SRC_VBLOCK[victimID];
+		src_page	= P_SRC_PAGE[victimID];
+		dst_vblock	= P_DST_VBLOCK[victimID];
+		dst_page	= P_DST_PAGE[victimID];
+		*/
 		//issue copyback cmd
 		while(canEvict(1) != 1);
 		nand_page_copyback(bank, src_vblock, src_page, dst_vblock, dst_page);
@@ -339,14 +421,15 @@ UINT32 cap_delete(UINT8 __bank) //dispatch fn
 	else //NAND_BLOCK_ERASE
 	{
 		//uart_printf("dispatch_nand_block_erase");
-		bank = read_dram_32(P_BANK_ADDR + victimID*sizeof(UINT32));
-		vblock = read_dram_32(P_VBLOCK_ADDR + victimID*sizeof(UINT32));
+		vblock	= read_dram_32(P_VBLOCK_ADDR + victimID*sizeof(UINT32));
+		//vblock = P_VBLOCK[victimID];
 		//issue erase cmd
 		while(canEvict(2) != 1);
 		nand_block_erase(bank, vblock);
 		set_bank_state(bank, 2);
 	}
 	write_dram_32(P_LPN_ADDR + victimID*sizeof(UINT32), 0xFFFFFFFF);
+	//P_LPN[victimID] = 0xFFFFFFFF;
 	/*
 	if(type == NAND_PAGE_PROGRAM &&  //write
 	   buf_addr >= LRU_ADDR && buf_addr < LRU_ADDR + LRU_BYTES)
@@ -357,6 +440,7 @@ UINT32 cap_delete(UINT8 __bank) //dispatch fn
 		recycleFreeList(id);
 	}*/
 	cap_recycleFreeList(__bank); //change free_list pointer
+	
 	//uart_printf("=====cap_delete end====");
 }
 /*
@@ -435,6 +519,12 @@ UINT16 findCap(UINT32 lpn)
 	for(UINT8 i=0; i!=P_MAX ; ++i)
 		if(lpn == read_dram_32(P_LPN_ADDR + i*sizeof(UINT32)))
 			return read_dram_16(P_ID_ADDR + i*sizeof(UINT16));
+	/*
+		if(lpn == P_LPN[i])
+			return P_ID[i];
+		
+	*/
+	
 	return 0xFFFF;
 }
 
@@ -446,6 +536,7 @@ UINT16 currentPower()
 		if( _BSP_FSM(REAL_BANK(bank)) != BANK_IDLE )
 		{
 			UINT8 operaion = read_dram_8(P_BANK_STATE_ADDR + bank*sizeof(UINT8));
+			//UINT8 operaion = P_BANK_STATE[bank];
 			if(operaion == 0) //read
 				power += READ_POWER;
 			else if(operaion == 1)//write
@@ -472,19 +563,21 @@ UINT8 canEvict(UINT8 operation)
 		return 1;
 }
 
-void set_bank_state(UINT8 bank, UINT8 operation)
+inline void set_bank_state(UINT8 bank, UINT8 operation)
 {
 	write_dram_8(P_BANK_STATE_ADDR + bank*sizeof(UINT8), operation);
+	//P_BANK_STATE[bank] = operation;
 }
 
 inline UINT32 randNum()
 {
-	static UINT32 seed = 0;
+	static UINT32 seed = 1103515245;
 	const UINT32 c = 1103515245, d = 12345;
 	seed = (c*seed + d);
-	return seed/65536;
+	return seed & 0xFFFF;
 }
 
+/*
 UINT8 selectVictim()
 {
 	UINT8 queueBank[NUM_BANKS];
@@ -499,3 +592,110 @@ UINT8 selectVictim()
 	UINT8 victim = randNum() % j ;
 	return queueBank[victim];
 }
+*/
+
+void randomEvict()
+{
+	UINT8 j = 0;
+	UINT8 buf[NUM_BANKS];
+	for(UINT8 i = 0 ; i != NUM_BANKS ; ++i)
+	{
+		if(q_size[i] && (_BSP_FSM(REAL_BANK(i)) == BANK_IDLE))
+		{
+			buf[j] = i;
+			++j;
+		}
+	}
+	for(UINT8 i = 0 ; i != j ; ++i)
+		SWAP(UINT8, buf[i], buf[randNum() % j]);
+	
+	UINT8 idle = (LIMIT - currentPower())/WRITE_POWER ;
+	if(j > idle)
+		j = idle;
+	
+	for(UINT8 i = 0 ; i != j ; ++i)
+		cap_delete(buf[i]);
+}
+
+void rrEvict()
+{
+	static UINT8 index = 0;
+	UINT8 j = 0;
+	UINT8 buf[NUM_BANKS];
+
+	UINT8 idle = (LIMIT - currentPower())/WRITE_POWER ;
+	
+	for(UINT8 i = 0 ; i != NUM_BANKS ; ++i)
+	{
+		if(q_size[i] && (_BSP_FSM(REAL_BANK(i)) == BANK_IDLE))
+			++j;
+	}
+	
+	for(UINT8 i = 0 ; i != NUM_BANKS ; ++i)
+	{
+		if(q_size[index] && (_BSP_FSM(REAL_BANK(index)) == BANK_IDLE))
+		{
+			cap_delete(index);
+			index = (index + 1) % (NUM_BANKS);
+			if(--j == 0)
+				break;
+		}
+	}
+	
+}
+
+void greedyEvict()
+{
+	UINT8 j = 0;
+	UINT8 buf[NUM_BANKS], buf_size[NUM_BANKS];
+	static UINT8 cnt = 0;
+	for(UINT8 i = 0 ; i != NUM_BANKS ; ++i)
+	{
+		if(q_size[i] && (_BSP_FSM(REAL_BANK(i)) == BANK_IDLE))
+		{
+			buf[j] = i;
+			buf_size[j] = g_last_page[i].bank_size;
+			++j;
+		}
+	}
+	if(j == 0)
+		return ;
+	for(UINT8 i = 0 ; i != j - 1 ; ++i)
+	{	
+		UINT8 swapped = 0;
+		for(UINT8 k = j - 1 ; k != i ; --k)
+			if(buf_size[k] > buf_size[k-1])
+			{
+				SWAP(UINT8, buf_size[k], buf_size[k-1]);
+				SWAP(UINT8, buf[k], buf[k-1]);
+				/*
+				UINT8 tmp = buf_size[k];
+				buf_size[k] = buf_size[k-1];
+				buf_size[k-1] = tmp;
+
+				tmp = buf[k];
+				buf[k] = buf[k-1];
+				buf[k-1 ] = tmp;
+				*/
+				swapped = 1;
+			}
+		if(!swapped)
+			break;
+	}
+	/*
+	if(j > 1 && cnt == 0)
+	{
+		for(UINT8 i = 0 ; i != j ; ++i)
+			uart_printf("%u: %u", buf[i], buf_size[i]);
+		uart_printf("\n");
+	}*/
+	UINT8 idle = (LIMIT - currentPower())/WRITE_POWER;
+	if(j > idle)
+		j = idle;
+	for(UINT8 i = 0 ; i != j ; ++i)
+	{
+		cap_delete(buf[i]);
+	}
+	++cnt;
+}
+

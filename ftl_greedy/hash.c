@@ -23,7 +23,7 @@ void deleteHash(UINT32 const lpn)
 
 void set_num_bank(UINT32 const lpn, UINT32 const bank)
 {
-	write_dram_32(bank_list_ADDR + lpn  * sizeof(UINT32), bank) ;
+	write_dram_32(bank_list_ADDR + lpn * sizeof(UINT32), bank) ;
 }
 
 UINT32 get_num_bank(UINT32 const lpn)
@@ -33,17 +33,17 @@ UINT32 get_num_bank(UINT32 const lpn)
 void set_lru_next(UINT16 id, UINT16 value)
 {
 	ASSERT(id < NUM_LRUBUFFER);
-	write_dram_16(lru_list_next_ADDR + (id) * sizeof(UINT16),value);
+	write_dram_16(lru_list_next_ADDR + (id) * sizeof(UINT16), value);
 }
 void set_lru_prev(UINT16 id, UINT16 value)
 {
 	ASSERT(id < NUM_LRUBUFFER);
-	write_dram_16(lru_list_prev_ADDR + (id) * sizeof(UINT16),value);
+	write_dram_16(lru_list_prev_ADDR + (id) * sizeof(UINT16), value);
 }
-void   set_lru_lpn(UINT16 id,UINT32 lpn)
+void set_lru_lpn(UINT16 id,UINT32 lpn)
 {
 	ASSERT(id < NUM_LRUBUFFER);
-	write_dram_32(lru_list_lpn_ADDR + (id)*sizeof(UINT32),lpn);
+	write_dram_32(lru_list_lpn_ADDR + (id)*sizeof(UINT32), lpn);
 }
 
 UINT16 get_lru_next(UINT16 id)
@@ -161,7 +161,7 @@ void set_lru_in_cap(UINT16 id, UINT8 value)
 	ASSERT(id < NUM_LRUBUFFER);
 	write_dram_8(lru_list_in_cap_ADDR + id * sizeof(UINT8), value);
 }
-UINT8 get_lru_in_cap_queue(UINT16 id)
+UINT8 get_lru_in_cap(UINT16 id)
 {
 	return read_dram_8(lru_list_in_cap_ADDR + id * sizeof(UINT8));
 }

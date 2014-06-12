@@ -70,6 +70,7 @@ UINT32 _mem_cmp_dram(const void* const addr1, const void* const addr2, const UIN
 UINT8	_read_dram_8(UINT32 const addr);
 UINT16	_read_dram_16(UINT32 const addr);
 UINT32	_read_dram_32(UINT32 const addr);
+UINT32 my_read_dram_32(UINT32 const addr);
 void	 _write_dram_4(UINT32 const addr, UINT8 const val);
 void	_write_dram_8(UINT32 const addr, UINT8 const val);
 void my_write_dram_8(UINT32 const addr, UINT8 const val);

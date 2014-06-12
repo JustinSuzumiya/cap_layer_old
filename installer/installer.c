@@ -1031,13 +1031,10 @@ BOOL32 erase_flash(UINT32 start_pblk_offset, UINT32 end_pblk_offset)
 			BOOL32 bad_h, bad_l;
 
 			erased[rbank] = FALSE;
-			
+
 			if ((BANK_BMP & (1 << rbank)) == 0)
-			{
-				printf("rbank=%d",rbank);
 				continue;
-			}
-			
+
 			fac->cmd	= ROM_CMD_FLASH_CMD;
 			fac->subcmd = FC_ERASE;
 			fac->rbank	= rbank;
@@ -1567,7 +1564,7 @@ static BOOL32 load_firmware_image(void)
 	}
 
 	num_bytes = fread(hc->firmware_image_buf, 1, FW_BUF_BYTES, file);
-
+	printf("firmware size: %u KB\n", num_bytes>>10);
 	fclose(file);
 
 	if (num_bytes == 0)
@@ -1575,7 +1572,7 @@ static BOOL32 load_firmware_image(void)
 		printf("ERROR: cannot read firmware.bin\n");
 		return FAIL;
 	}
-
+	
 	if (num_bytes == FW_BUF_BYTES)
 	{
 		printf("ERROR: firmware image too large\n");
