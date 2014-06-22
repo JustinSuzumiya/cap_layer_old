@@ -7,13 +7,15 @@
 #define INVALID_ID 0xFFFF
 
 #define cap 1
+#define random 0
+#define backlogged 0
 #define greedy 1
 
 #define READ_POWER 40
 #define WRITE_POWER 40
 #define ERASE_POWER 40
 
-#define LIMIT 120
+#define LIMIT 160
 
 #define SWAP(TYPE, a, b) \
 	do{ TYPE t = (a); (a) = (b); (b) = t; }while(0)
@@ -101,7 +103,9 @@ UINT8 canEvict(UINT8 operation);
 inline void set_bank_state(UINT8 bank, UINT8 operation);
 inline UINT32 randNum();
 void randomEvict();
+void randombEvict();
 void rrEvict();
+void rrbEvict();
 void greedyEvict();
 //UINT8 selectVictim();
 #endif

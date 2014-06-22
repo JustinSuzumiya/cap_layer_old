@@ -47,11 +47,11 @@
 //----------------------------------
 typedef struct _ftl_statistics
 {
-    UINT32 gc_cnt;
-    UINT32 page_wcount; // page write count
-//   UINT32 erase_cnt;
-//	UINT32 user_write;
-
+//    UINT32 gc_cnt;
+//    UINT32 page_wcount; // page write count
+	UINT32 erase_cnt;
+	UINT32 user_write;
+	UINT32 flash_write;
 } ftl_statistics;
 
 typedef struct _misc_metadata
@@ -81,7 +81,7 @@ typedef struct _misc_metadata
 // FTL metadata (maintain in SRAM)
 //----------------------------------
 static misc_metadata  g_misc_meta[NUM_BANKS];
-//static ftl_statistics g_ftl_statistics[NUM_BANKS];
+static ftl_statistics g_ftl_statistics[NUM_BANKS];
 static UINT32		  g_bad_blk_count[NUM_BANKS];
 
 
@@ -360,7 +360,8 @@ void ftl_test_write(UINT32 const lba, UINT32 const num_sectors)
 
     ftl_write(lba, num_sectors);
 }
-UINT32 user_read=0;
+//UINT32 user_read=0;
+/*
 void ftl_read(UINT32 const lba, UINT32 const num_sectors)
 {
     UINT32 remain_sects, num_sectors_to_read;
@@ -469,10 +470,10 @@ void ftl_read(UINT32 const lba, UINT32 const num_sectors)
         remain_sects -= num_sectors_to_read;
         lpn++;
     }
-}
+}*/
 UINT32 flash_write=0, gc_write=0, user_write=0, flash_read, erase_count=0,lefthole=0,righthole=0,no_writeflag=1 , limit = 0;
 UINT32 ff_flag = 0 ;
-UINT32 merge_cnt = 0;
+//UINT32 merge_cnt = 0;
 void ftl_write(UINT32 const lba, UINT32 const num_sectors)
 {
     UINT32 remain_sects, num_sectors_to_write;
@@ -523,28 +524,38 @@ void ftl_write(UINT32 const lba, UINT32 const num_sectors)
     {
         UINT32 totalTime = ptimer_stop_and_uart_print();
         long double execTime = 0; //ms
-        execTime = erase_count*3.171 + gc_write*1.5255 + flash_write*1.319 + (flash_read + user_read)*0.7755;
+        execTime = erase_count*3.171 + gc_write*1.5255 + flash_write*1.319 + (flash_read )*0.7755;
         uart_printf("idle time: %lf", 1-execTime / ((long double)totalTime/1000*NUM_BANKS));
         /*if(g_ftl_statistics[0].gc_cnt>1000)
         	uart_printf("gc_cnt bank[0]=%d",g_ftl_statistics[0].gc_cnt);
         if(g_ftl_statistics[1].gc_cnt>1000)
         	uart_printf("gc_cnt bank[1]=%d",g_ftl_statistics[1].gc_cnt);
         uart_printf("user_write=%d",user_write);
-        */
+        
         uart_printf("user_write=%d",user_write);
         uart_printf("flash_write = %d", flash_write);
         uart_printf("gc_write = %d", gc_write);
         uart_printf("flash_read+user_read = %d", flash_read + user_read);
         uart_printf("erase_count = %d", erase_count);
-	 uart_printf("merge_cnt = %d", merge_cnt);	
+	 	uart_printf("merge_cnt = %d", merge_cnt);	
+	 	*/
         /*
         uart_printf("left hole=%d",lefthole);
         uart_printf("right hole=%d",righthole);
         */
+        for(UINT8 i = 0 ; i != NUM_BANKS ; ++i)
+		{
+			uart_printf("bank %u", i);
+			uart_printf("user_write: %u", g_ftl_statistics[i].user_write);
+			uart_printf("flash_write: %u", g_ftl_statistics[i].flash_write);
+			uart_printf("erase_cnt: %u", g_ftl_statistics[i].erase_cnt);
+			uart_printf("wamp: %f", ((float)g_ftl_statistics[i].user_write+g_ftl_statistics[i].flash_write)/g_ftl_statistics[i].user_write);
+		}
     }
 
 }
-UINT32 target = 0 , RMW_page_read = NUM_BANKS;
+//UINT32 target = 0;
+UINT32 RMW_page_read = NUM_BANKS;
 static UINT8 cnt = 0;
 static UINT8 in = 0;
 static UINT32 time = 0;
@@ -578,7 +589,7 @@ static void write_page(UINT32 const lpn, UINT32 const sect_offset, UINT32 const 
     //LRU hit
     if(page_id != 0xFFFF && page_id == LRU_head)
     {
-    	++merge_cnt;
+    	//++merge_cnt;
         //copy from SATA_W_BUF to LRU_BUF
         //if(no_writeflag)
         if(user_write <= 3)
@@ -618,16 +629,32 @@ static void write_page(UINT32 const lpn, UINT32 const sect_offset, UINT32 const 
             //uart_printf("size=%d",LRU_size);
             UINT32 vlpn ;
             UINT32 vbank ;
-            UINT32 rbank;
+            //UINT32 rbank;
 
             for(int i = 0 ; i < NUM_BANKS; i ++ )
             {
+	        	#if greedy == 0
+					#if random == 1
+						#if backlogged == 1
+							randombEvict();
+						#else
+							randomEvict();
+						#endif
+					#else //rr
+						#if backlogged == 1
+							rrbEvict();
+						#else
+							rrEvict();
+						#endif
+					#endif
+				#else//greedy
+					greedyEvict();
+				#endif
                 vbank = i;// target ;
                 //uart_printf("%d", vbank);
-                rbank = REAL_BANK(vbank);
-                if((_BSP_FSM(rbank) != BANK_IDLE) )
+                if((_BSP_FSM(REAL_BANK(vbank)) != BANK_IDLE) || q_size[vbank] == Q_DEPTH)
                 {
-                    target = (target+1) % NUM_BANKS;
+                    //target = (target+1) % NUM_BANKS;
                     continue;
                 }
 
@@ -635,13 +662,13 @@ static void write_page(UINT32 const lpn, UINT32 const sect_offset, UINT32 const 
                 UINT32 last_page_flag = check_GC(vbank) ;
                 if(last_page_flag)
                 {
-                    target = (target+1) % NUM_BANKS;
+                    //target = (target+1) % NUM_BANKS;
                     continue ;
                 }
                 if(g_misc_meta[vbank].gcing == 1)
                 {
                     g_misc_meta[vbank].gcing = garbage_collection(vbank) ;
-                    target = (target+1) % NUM_BANKS;
+                    //target = (target+1) % NUM_BANKS;
                     continue ;
                 }
                 /*
@@ -671,11 +698,11 @@ static void write_page(UINT32 const lpn, UINT32 const sect_offset, UINT32 const 
 #if static_binding
                 if(g_last_page[vbank].bank_tail == 0xFFFF)
                 {
-                    target = (target+1) % NUM_BANKS;
+                    //target = (target+1) % NUM_BANKS;
                     continue;
                 }
 #endif
-                target = (target+1) % NUM_BANKS;
+                //target = (target+1) % NUM_BANKS;
                 ///////////
 
                 UINT32 victim_current ;
@@ -764,7 +791,7 @@ static void write_page(UINT32 const lpn, UINT32 const sect_offset, UINT32 const 
                                       LRU_ADDR + (victim_current * BYTES_PER_PAGE)
                                      );
 				#endif
-				
+					++g_ftl_statistics[vbank].user_write;
                     ++flash_write;
 
                     if(get_gc_vblock(old_bank) == get_vpn(vlpn)/PAGES_PER_BLK)
@@ -1184,6 +1211,7 @@ static UINT32 garbage_collection(UINT32 const bank)
                                free_vpn / PAGES_PER_BLK,
                                free_vpn % PAGES_PER_BLK);
 #endif
+			++g_ftl_statistics[bank].flash_write;
 	/*
             if(copy_flag)
             {
@@ -1223,6 +1251,7 @@ static UINT32 garbage_collection(UINT32 const bank)
 #else
         nand_block_erase(bank, vt_vblock);
 #endif
+		++g_ftl_statistics[bank].erase_cnt;
         erase_count++;
         g_misc_meta[bank].src_page = 0;
         /*     uart_printf("gc page count : %d", vcount); */
@@ -1350,13 +1379,14 @@ static void format(void)
 
     for( int i =  0 ; i < NUM_BANKS ; i++)
     {
-
+		g_ftl_statistics[i].erase_cnt = g_ftl_statistics[i].flash_write = g_ftl_statistics[i].user_write = 0;
 
         UINT32 first_vpn =	get_cur_write_vpn(i) ;
         UINT32 first_block = first_vpn	/ PAGES_PER_BLK ;
         UINT32 group =1;
         UINT32 current = 0 ;
         UINT32 first_lpn = i * group;
+		/*
         if(i == 0)
         {
             for(int r = 0 ; r < 16 ; r++)
@@ -1385,9 +1415,10 @@ static void format(void)
             }
             first_block = first_vpn	/ PAGES_PER_BLK ;
         }
+        */
         uart_printf("group : %d" , group);
         uart_printf("free block : %d" , g_misc_meta[i].free_blk_cnt);
-        while(g_misc_meta[i].free_blk_cnt > 4)
+        while(g_misc_meta[i].free_blk_cnt > 34)
         {
             UINT32 kk = 0;
 
@@ -1445,6 +1476,7 @@ static void format(void)
                 break ;
             }
         }
+		uart_printf("free block : %d" , g_misc_meta[i].free_blk_cnt);
     }
     //-----------------------------
 

@@ -21,7 +21,7 @@
 
 #define	FLASH_TYPE		K9LCG08U1M
 #define	DRAM_SIZE		65075200
-#define	BANK_BMP		0x3333
+#define	BANK_BMP		0xCCCC
 //0x00FF//0x1111//0x00330033//0x00FF//0x0033//0x3333//0x000F//0x1111//0x000F//0x3333//0x0033//0x0011  
 #define	CLOCK_SPEED		175000000
 
@@ -179,7 +179,7 @@ typedef struct
 // #define NUM_LSECTORS	(21168 + ((NUM_PSECTORS) / 2097152 * 1953504)) // 125045424, 9172304(provisioning ratio: 7.3%)
 
 // #define NUM_LSECTORS	(NUM_PSECTORS  / 100 * 86) // 14% provisioning
-#define NUM_LSECTORS	(NUM_PSECTORS  / 100 * 90) // 7% provisioning
+#define NUM_LSECTORS	(NUM_PSECTORS  / 100 * 96) // 7% provisioning
 
 #include "ftl.h"
 #include "misc.h"

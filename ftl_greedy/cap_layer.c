@@ -55,28 +55,31 @@ UINT16 cap_insert(UINT8 bank, struct cap_node node)
 	static UINT8 cnt = 0;
 	//while((victim = selectVictim()) != 0xFF && currentPower() < LIMIT)
 	{
-		
+	/*	
 	#if greedy == 0
-		randomEvict();
-		/*
-		while(j-- && (LIMIT - currentPower())/WRITE_POWER )
-			if((victim = selectVictim()) != 0xFF)
-				cap_delete(victim);
-		*/
+		#if random == 1
+			#if backlogged == 1
+				randombEvict();
+			#else
+				randomEvict();
+			#endif
+		#else //rr
+			#if backlogged == 1
+				rrbEvict();
+			#else
+				rrEvict();
+			#endif
+		#endif
 	#else//greedy
 		greedyEvict();
-		/*
-		while(j-- && q_size[buf[victim]] && (LIMIT - currentPower())/WRITE_POWER)
-			cap_delete(buf[victim++]);
-		*/
 	#endif
-		
+	*/	
 	}
 	if(q_size[bank] == Q_DEPTH)
 	{
 		//uart_printf("%d", q_size[bank]);
-		//uart_printf("full");
-		cap_delete(bank);
+		uart_printf("full");
+		//cap_delete(bank);
 	}
 	/*
 	if(cap_is_full(bank))
@@ -600,6 +603,24 @@ void randomEvict()
 	UINT8 buf[NUM_BANKS];
 	for(UINT8 i = 0 ; i != NUM_BANKS ; ++i)
 	{
+		buf[i] = i;
+	}
+	for(UINT8 i = 0 ; i != NUM_BANKS ; ++i)
+		SWAP(UINT8, buf[i], buf[randNum() % NUM_BANKS]);
+	
+	UINT8 idle = (LIMIT - currentPower())/WRITE_POWER ;
+	
+	for(UINT8 i = 0 ; i != idle ; ++i)
+		cap_delete(buf[i]);
+}
+
+
+void randombEvict()
+{
+	UINT8 j = 0;
+	UINT8 buf[NUM_BANKS];
+	for(UINT8 i = 0 ; i != NUM_BANKS ; ++i)
+	{
 		if(q_size[i] && (_BSP_FSM(REAL_BANK(i)) == BANK_IDLE))
 		{
 			buf[j] = i;
@@ -625,21 +646,31 @@ void rrEvict()
 
 	UINT8 idle = (LIMIT - currentPower())/WRITE_POWER ;
 	
-	for(UINT8 i = 0 ; i != NUM_BANKS ; ++i)
+	for(UINT8 i = 0 ; i != idle ; ++i)
 	{
-		if(q_size[i] && (_BSP_FSM(REAL_BANK(i)) == BANK_IDLE))
-			++j;
+		cap_delete(index);
+		index = (index + 1) % (NUM_BANKS);
 	}
+	
+}
+
+void rrbEvict()
+{
+	static UINT8 index = 0;
+	UINT8 j = 0;
+	UINT8 buf[NUM_BANKS];
+
+	UINT8 idle = (LIMIT - currentPower())/WRITE_POWER ;
 	
 	for(UINT8 i = 0 ; i != NUM_BANKS ; ++i)
 	{
 		if(q_size[index] && (_BSP_FSM(REAL_BANK(index)) == BANK_IDLE))
 		{
 			cap_delete(index);
-			index = (index + 1) % (NUM_BANKS);
-			if(--j == 0)
+			if(++j == idle)
 				break;
 		}
+		index = (index + 1) % (NUM_BANKS);
 	}
 	
 }
@@ -648,7 +679,9 @@ void greedyEvict()
 {
 	UINT8 j = 0;
 	UINT8 buf[NUM_BANKS], buf_size[NUM_BANKS];
-	static UINT8 cnt = 0;
+	//static UINT8 cnt = 0;
+	UINT8 idle = (LIMIT - currentPower())/WRITE_POWER;
+	
 	for(UINT8 i = 0 ; i != NUM_BANKS ; ++i)
 	{
 		if(q_size[i] && (_BSP_FSM(REAL_BANK(i)) == BANK_IDLE))
@@ -660,27 +693,31 @@ void greedyEvict()
 	}
 	if(j == 0)
 		return ;
-	for(UINT8 i = 0 ; i != j - 1 ; ++i)
-	{	
-		UINT8 swapped = 0;
-		for(UINT8 k = j - 1 ; k != i ; --k)
-			if(buf_size[k] > buf_size[k-1])
-			{
-				SWAP(UINT8, buf_size[k], buf_size[k-1]);
-				SWAP(UINT8, buf[k], buf[k-1]);
-				/*
-				UINT8 tmp = buf_size[k];
-				buf_size[k] = buf_size[k-1];
-				buf_size[k-1] = tmp;
+	if(j > idle)
+	{
+		for(UINT8 i = 0 ; i != j - 1 ; ++i)
+		{	
+			UINT8 swapped = 0;
+			for(UINT8 k = j - 1 ; k != i ; --k)
+				if(buf_size[k] > buf_size[k-1])
+				{
+					SWAP(UINT8, buf_size[k], buf_size[k-1]);
+					SWAP(UINT8, buf[k], buf[k-1]);
+					/*
+					UINT8 tmp = buf_size[k];
+					buf_size[k] = buf_size[k-1];
+					buf_size[k-1] = tmp;
 
-				tmp = buf[k];
-				buf[k] = buf[k-1];
-				buf[k-1 ] = tmp;
-				*/
-				swapped = 1;
-			}
-		if(!swapped)
-			break;
+					tmp = buf[k];
+					buf[k] = buf[k-1];
+					buf[k-1 ] = tmp;
+					*/
+					swapped = 1;
+				}
+			if(!swapped)
+				break;
+		}
+		j = idle;
 	}
 	/*
 	if(j > 1 && cnt == 0)
@@ -689,13 +726,11 @@ void greedyEvict()
 			uart_printf("%u: %u", buf[i], buf_size[i]);
 		uart_printf("\n");
 	}*/
-	UINT8 idle = (LIMIT - currentPower())/WRITE_POWER;
-	if(j > idle)
-		j = idle;
+	
 	for(UINT8 i = 0 ; i != j ; ++i)
 	{
 		cap_delete(buf[i]);
 	}
-	++cnt;
+//	++cnt;
 }
 
