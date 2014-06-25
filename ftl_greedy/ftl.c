@@ -61,8 +61,8 @@ typedef struct _misc_metadata
     UINT32 cur_mapblk_vpn[MAPBLKS_PER_BANK]; // current write vpn for logging the age mapping info.
     UINT16 gc_vblock; // vblock number for garbage collection
     UINT32 free_blk_cnt; // total number of free block count
-    UINT32 lpn_list_of_cur_vblock[PAGES_PER_BLK]; // logging lpn list of current write vblock for GC
-    UINT32 lpn_list_of_gc_vblock[PAGES_PER_BLK];
+    //UINT32 lpn_list_of_cur_vblock[PAGES_PER_BLK]; // logging lpn list of current write vblock for GC
+    //UINT32 lpn_list_of_gc_vblock[PAGES_PER_BLK];
     UINT16 gc_backup;
     UINT16 gc_backup_for_gc;
     UINT8 cur_freevpn ;
@@ -114,8 +114,10 @@ UINT32 				  g_ftl_write_buf_id;
 #define set_new_write_vpn(bank, vpn)  (g_misc_meta[bank].cur_write_vpn = vpn)
 #define get_gc_vblock(bank)           (g_misc_meta[bank].gc_vblock)
 #define set_gc_vblock(bank, vblock)   (g_misc_meta[bank].gc_vblock = vblock)
-#define set_lpn(bank, page_num, lpn)  (g_misc_meta[bank].lpn_list_of_cur_vblock[page_num] = lpn)
-#define get_lpn(bank, page_num)       (g_misc_meta[bank].lpn_list_of_cur_vblock[page_num])
+//#define set_lpn(bank, page_num, lpn)  (g_misc_meta[bank].lpn_list_of_cur_vblock[page_num] = lpn)
+//#define get_lpn(bank, page_num)       (g_misc_meta[bank].lpn_list_of_cur_vblock[page_num])
+#define set_lpn(bank, page_num, lpn)	write_dram_32(LPN_LIST_OF_CUR_VBLOCK_ADDR + (bank*PAGES_PER_BLK+page_num) * sizeof(UINT32), lpn)
+#define get_lpn(bank, page_num)		read_dram_32(LPN_LIST_OF_CUR_VBLOCK_ADDR + (bank*PAGES_PER_BLK+page_num) * sizeof(UINT32))
 #define get_miscblk_vpn(bank)         (g_misc_meta[bank].cur_miscblk_vpn)
 #define set_miscblk_vpn(bank, vpn)    (g_misc_meta[bank].cur_miscblk_vpn = vpn)
 #define get_mapblk_vpn(bank, mapblk_lbn)      (g_misc_meta[bank].cur_mapblk_vpn[mapblk_lbn])
@@ -981,7 +983,10 @@ static UINT32 check_GC(UINT32 const bank)
         // then, because of the flash controller limitation
         // (prohibit accessing a spare area (i.e. OOB)),
         // thus, we persistenly write a lpn list into last page of vblock.
-        mem_copy(gc_last_page_ADDR + bank * BYTES_PER_PAGE, g_misc_meta[bank].lpn_list_of_cur_vblock, sizeof(UINT32) * PAGES_PER_BLK);
+        //mem_copy(gc_last_page_ADDR + bank * BYTES_PER_PAGE, g_misc_meta[bank].lpn_list_of_cur_vblock, sizeof(UINT32) * PAGES_PER_BLK);
+        mem_copy(gc_last_page_ADDR + bank * BYTES_PER_PAGE, 
+        	LPN_LIST_OF_CUR_VBLOCK_ADDR + bank * PAGES_PER_BLK * sizeof(UINT32), 
+        	sizeof(UINT32) * PAGES_PER_BLK);
         // fix minor bug
 #if 0//cap
         cap_node node;
@@ -1009,8 +1014,8 @@ static UINT32 check_GC(UINT32 const bank)
 #endif
         ++flash_write;
         while ((GETREG(WR_STAT) & 0x00000001) != 0);
-        mem_set_sram(g_misc_meta[bank].lpn_list_of_cur_vblock, 0x00000000, sizeof(UINT32) * PAGES_PER_BLK);
-
+        //mem_set_sram(g_misc_meta[bank].lpn_list_of_cur_vblock, 0x00000000, sizeof(UINT32) * PAGES_PER_BLK);
+	mem_set_dram(LPN_LIST_OF_CUR_VBLOCK_ADDR + bank * PAGES_PER_BLK * sizeof(UINT32), 0x00000000, sizeof(UINT32) * PAGES_PER_BLK);
         inc_full_blk_cnt(bank);
 
         // do garbage collection if necessary
@@ -1130,7 +1135,8 @@ static UINT32 garbage_collection(UINT32 const bank)
                 //uart_printf("test==127");
                 //  uart_printf("run out gc block  : %d" , g_misc_meta[bank].gc_vblock_vcount);
                 //uart_printf("change");
-                mem_copy(FTL_BUF(bank), g_misc_meta[bank].lpn_list_of_gc_vblock, sizeof(UINT32) * PAGES_PER_BLK);
+                //mem_copy(FTL_BUF(bank), g_misc_meta[bank].lpn_list_of_gc_vblock, sizeof(UINT32) * PAGES_PER_BLK);
+                mem_copy(FTL_BUF(bank), LPN_LIST_OF_GC_VBLOCK_ADDR + bank * PAGES_PER_BLK * sizeof(UINT32), sizeof(UINT32) * PAGES_PER_BLK);
                 UINT32 vblock = (free_vpn / PAGES_PER_BLK) ;
 #if 0//cap
                 cap_node node;
@@ -1226,7 +1232,8 @@ static UINT32 garbage_collection(UINT32 const bank)
             set_vpn(src_lpn, free_vpn);
             //   set_lpn(bank, (free_vpn % PAGES_PER_BLK), src_lpn);
             UINT32 page_num = free_vpn % PAGES_PER_BLK;
-            g_misc_meta[bank].lpn_list_of_gc_vblock[page_num] = src_lpn;
+            //g_misc_meta[bank].lpn_list_of_gc_vblock[page_num] = src_lpn;
+            write_dram_32(LPN_LIST_OF_GC_VBLOCK_ADDR + (bank*PAGES_PER_BLK + page_num)*sizeof(UINT32), src_lpn);
             //	uart_printf("gc_count : %d vcount : %d ,src_page : %d cur_freevpn : %d" , gc_count, vcount , src_page , g_misc_meta[bank].cur_freevpn);
             src_page++;
             g_misc_meta[bank].src_page = src_page ;
@@ -1438,7 +1445,8 @@ static void format(void)
                 }
                 kk++ ;
                 //nand_page_program(i,first_block,k,FTL_BUF(i));
-                g_misc_meta[i].lpn_list_of_cur_vblock[k] = first_lpn ; // set lpn
+                //g_misc_meta[i].lpn_list_of_cur_vblock[k] = first_lpn ; // set lpn
+                set_lpn(i, k, first_lpn);
                 set_num_bank(first_lpn,i) ;
                 set_vpn(first_lpn, first_block * PAGES_PER_BLK + k);	 // set vpn
 
@@ -1451,7 +1459,8 @@ static void format(void)
             }
             if((first_lpn >= NUM_LPAGES)&&(kk!=127))
                 break ;
-            mem_copy(FTL_BUF(i), g_misc_meta[i].lpn_list_of_cur_vblock, sizeof(UINT32) * PAGES_PER_BLK);
+            //mem_copy(FTL_BUF(i), g_misc_meta[i].lpn_list_of_cur_vblock, sizeof(UINT32) * PAGES_PER_BLK);
+	    mem_copy(FTL_BUF(i), LPN_LIST_OF_CUR_VBLOCK_ADDR + i*PAGES_PER_BLK*sizeof(UINT32), sizeof(UINT32) * PAGES_PER_BLK);         
             nand_page_ptprogram_for_format(i, first_block, PAGES_PER_BLK - 1, 0,
                                            ((sizeof(UINT32) * PAGES_PER_BLK + BYTES_PER_SECTOR - 1 ) / BYTES_PER_SECTOR), FTL_BUF(i));
             inc_full_blk_cnt(i);
@@ -1586,7 +1595,7 @@ static void init_metadata_sram(void)
         do
         {
             vblock++;
-            // ?ÑÏû¨ next vblockÎ∂Ä???àÎ????∞Ïù¥?∞Î•º ?Ä?•Ï? ?úÏ?
+            // ?ÔøΩÏû¨ next vblockÎ∂Ä???ÔøΩÔøΩ????ÔøΩÏù¥?ÔøΩÎ•º ?ÔøΩ?ÔøΩÔøΩ? ?ÔøΩÔøΩ?
             set_new_write_vpn(bank, vblock * PAGES_PER_BLK);
             ASSERT(vblock < VBLKS_PER_BANK);
         }
