@@ -89,7 +89,7 @@ void Main(void)
 
 			if (cmd.cmd_type == READ)
 			{
-				//ftl_read(cmd.lba, cmd.sector_count);
+				ftl_read(cmd.lba, cmd.sector_count);
 			}
 			else
 			{

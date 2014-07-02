@@ -342,7 +342,26 @@ void ptimer_start(void)
 {
     start_interval_measurement(TIMER_CH1, TIMER_PRESCALE_2);
 }
+
+void ptimer_start_scale0(void)
+{
+    start_interval_measurement(TIMER_CH2, TIMER_PRESCALE_0);
+}
+
 UINT32 ptimer_stop_and_uart_print(void)
+{
+    UINT32 rtime;
+    //char buf[21];
+
+    rtime = 0xFFFFFFFF - GET_TIMER_VALUE(TIMER_CH1);
+    // Tick to us
+    rtime = (UINT32)((UINT64)rtime * 2 * 1000000 * PRESCALE_TO_DIV(TIMER_PRESCALE_2) / CLOCK_SPEED);
+    //sprintf(buf, "%u", rtime);
+    //uart_print(buf);
+	return rtime;
+}
+
+UINT32 ptimer_stop_and_uart_print_scale0(void)
 {
     UINT32 rtime;
     //char buf[21];

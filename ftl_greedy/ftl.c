@@ -308,7 +308,7 @@ void ftl_open(void)
 
     /* UINT32 volatile g_break = 0; */
     /* while (g_break == 0); */
-
+	ptimer_start_scale0(); //for setRand()
     led(0);
     sanity_check();
     //----------------------------------------
@@ -346,6 +346,7 @@ void ftl_open(void)
     SETREG(FCONF_PAUSE, FIRQ_DATA_CORRUPT | FIRQ_BADBLK_L | FIRQ_BADBLK_H);
 
     enable_irq();
+	setRand(ptimer_stop_and_uart_print_scale0());//setRand()
 }
 void ftl_flush(void)
 {
@@ -362,8 +363,8 @@ void ftl_test_write(UINT32 const lba, UINT32 const num_sectors)
 
     ftl_write(lba, num_sectors);
 }
-//UINT32 user_read=0;
-/*
+UINT32 user_read=0;
+
 void ftl_read(UINT32 const lba, UINT32 const num_sectors)
 {
     UINT32 remain_sects, num_sectors_to_read;
@@ -472,7 +473,7 @@ void ftl_read(UINT32 const lba, UINT32 const num_sectors)
         remain_sects -= num_sectors_to_read;
         lpn++;
     }
-}*/
+}
 UINT32 flash_write=0, gc_write=0, user_write=0, flash_read, erase_count=0,lefthole=0,righthole=0,no_writeflag=1 , limit = 0;
 UINT32 ff_flag = 0 ;
 //UINT32 merge_cnt = 0;
@@ -522,12 +523,15 @@ void ftl_write(UINT32 const lba, UINT32 const num_sectors)
     }
 
 //	if(limit >= 4194346)
-    if(lba ==10000005)
+    if(lba == 10000005)
     {
         UINT32 totalTime = ptimer_stop_and_uart_print();
         long double execTime = 0; //ms
         execTime = erase_count*3.171 + gc_write*1.5255 + flash_write*1.319 + (flash_read )*0.7755;
-        uart_printf("idle time: %lf", 1-execTime / ((long double)totalTime/1000*NUM_BANKS));
+        //uart_printf("idle time: %lf", 1-execTime / ((long double)totalTime/1000*NUM_BANKS));
+		uart_printf("total time: %u", totalTime);
+		uart_printf("more: %u", more);
+		uart_printf("less: %u", less);
         /*if(g_ftl_statistics[0].gc_cnt>1000)
         	uart_printf("gc_cnt bank[0]=%d",g_ftl_statistics[0].gc_cnt);
         if(g_ftl_statistics[1].gc_cnt>1000)
@@ -544,7 +548,7 @@ void ftl_write(UINT32 const lba, UINT32 const num_sectors)
         /*
         uart_printf("left hole=%d",lefthole);
         uart_printf("right hole=%d",righthole);
-        */
+        
         for(UINT8 i = 0 ; i != NUM_BANKS ; ++i)
 		{
 			uart_printf("bank %u", i);
@@ -552,7 +556,7 @@ void ftl_write(UINT32 const lba, UINT32 const num_sectors)
 			uart_printf("flash_write: %u", g_ftl_statistics[i].flash_write);
 			uart_printf("erase_cnt: %u", g_ftl_statistics[i].erase_cnt);
 			uart_printf("wamp: %f", ((float)g_ftl_statistics[i].user_write+g_ftl_statistics[i].flash_write)/g_ftl_statistics[i].user_write);
-		}
+		}*/
     }
 
 }
@@ -1331,7 +1335,7 @@ static void format(void)
     uart_printf("HASH_TABLE_SIZE: %d KB", HASH_TABLE_BYTES / 1024);
     uart_printf("BLK_TABLE_SIZE: %d KB", BLK_TABLE_BYTES / 1024);
 	
-    uart_printf("g_misc_meta: %d KB", sizeof(g_misc_meta ) / 1024);
+    uart_printf("g_misc_meta: %d B", sizeof(g_misc_meta ) );
     //----------------------------------------
     // initialize DRAM metadata
     //----------------------------------------

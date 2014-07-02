@@ -102,6 +102,7 @@ UINT16 currentPower();
 UINT8 canEvict(UINT8 operation);
 inline void set_bank_state(UINT8 bank, UINT8 operation);
 inline UINT32 randNum();
+inline void setRand(UINT32 val);
 void randomEvict();
 void randombEvict();
 void rrEvict();

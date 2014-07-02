@@ -572,12 +572,18 @@ inline void set_bank_state(UINT8 bank, UINT8 operation)
 	//P_BANK_STATE[bank] = operation;
 }
 
+static UINT32 seed;
+
 inline UINT32 randNum()
 {
-	static UINT32 seed = 1103515245;
 	const UINT32 c = 1103515245, d = 12345;
 	seed = (c*seed + d);
 	return seed & 0xFFFF;
+}
+
+inline void setRand(UINT32 val)
+{
+	seed = val;
 }
 
 /*
@@ -596,6 +602,8 @@ UINT8 selectVictim()
 	return queueBank[victim];
 }
 */
+
+UINT32 more, less;
 
 void randomEvict()
 {
@@ -631,9 +639,13 @@ void randombEvict()
 		SWAP(UINT8, buf[i], buf[randNum() % j]);
 	
 	UINT8 idle = (LIMIT - currentPower())/WRITE_POWER ;
-	if(j > idle)
+	if(j >= idle)
+	{
 		j = idle;
-	
+		++more;
+	}
+	else
+		++less;
 	for(UINT8 i = 0 ; i != j ; ++i)
 		cap_delete(buf[i]);
 }
@@ -691,8 +703,7 @@ void greedyEvict()
 			++j;
 		}
 	}
-	if(j == 0)
-		return ;
+
 	if(j > idle)
 	{
 		for(UINT8 i = 0 ; i != j - 1 ; ++i)
@@ -719,6 +730,10 @@ void greedyEvict()
 		}
 		j = idle;
 	}
+	if(j >= idle)
+		++more;
+	else
+		++less;
 	/*
 	if(j > 1 && cnt == 0)
 	{
