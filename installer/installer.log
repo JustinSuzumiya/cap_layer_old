@@ -1,4 +1,4 @@
-﻿已經開始建置於 2014/6/12 下午 05:58:14。
+﻿已經開始建置於 2014/6/22 下午 07:53:22。
      1>節點 2 (Build 目標) 上的專案 "C:\Users\Justin\Documents\GitHub\cap_layer\installer\installer.vcxproj"。
      1>ClCompile:
          C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\bin\CL.exe /c /I..\installer /I..\include /I..\target_spw /I..\sata /I..\ftl_tutorial /I..\ftl_greedy /ZI /nologo /W4 /WX- /Od /Oy- /D PROGRAM_INSTALLER /D WIN32 /D NDEBUG /D _CONSOLE /Gm /EHsc /RTC1 /MTd /Zp4 /GS /arch:SSE2 /fp:precise /Zc:wchar_t /Zc:forScope /GR- /Fo".\\" /Fd".\vc110.pdb" /Gd /TP /wd4127 /wd4214 /analyze- /errorReport:prompt installer.c
@@ -6,10 +6,10 @@
      1>C:\Program Files (x86)\MSBuild\Microsoft.Cpp\v4.0\V110\Microsoft.CppBuild.targets(1137,5): warning MSB8012: TargetPath(C:\Users\Justin\Documents\GitHub\cap_layer\installer\.\installer.exe) does not match the Linker's OutputFile property value (C:\Users\Justin\Documents\GitHub\cap_layer\installer\install.exe). This may cause your project to build incorrectly. To correct this, please make sure that $(OutDir), $(TargetName) and $(TargetExt) property values match the value specified in %(Link.OutputFile).
      1>C:\Program Files (x86)\MSBuild\Microsoft.Cpp\v4.0\V110\Microsoft.CppBuild.targets(1139,5): warning MSB8012: TargetName(installer) does not match the Linker's OutputFile property value (install). This may cause your project to build incorrectly. To correct this, please make sure that $(OutDir), $(TargetName) and $(TargetExt) property values match the value specified in %(Link.OutputFile).
        Link:
-         C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"install.exe" /INCREMENTAL /NOLOGO /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /manifestinput:"C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\Include\Manifest\dpiaware.manifest" /DEBUG /PDB:".\installer.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE:NO /IMPLIB:".\installer.lib" /MACHINE:X86 /SAFESEH .\installer.obj
+         C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"install.exe" /INCREMENTAL /NOLOGO /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /manifestinput:"C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\Include\Manifest\dpiaware.manifest" /DEBUG /PDB:".\installer.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:".\installer.lib" /MACHINE:X86 /SAFESEH .\installer.obj
          installer.vcxproj -> C:\Users\Justin\Documents\GitHub\cap_layer\installer\.\installer.exe
      1>專案 "C:\Users\Justin\Documents\GitHub\cap_layer\installer\installer.vcxproj" (Build 目標) 建置完成。
 
 建置成功。
 
-經過時間 00:00:06.01
+經過時間 00:00:02.54
