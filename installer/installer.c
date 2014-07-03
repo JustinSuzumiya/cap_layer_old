@@ -1564,7 +1564,7 @@ static BOOL32 load_firmware_image(void)
 	}
 
 	num_bytes = fread(hc->firmware_image_buf, 1, FW_BUF_BYTES, file);
-
+	printf("firmware size: %u KB\n", num_bytes>>10);
 	fclose(file);
 
 	if (num_bytes == 0)
@@ -1572,7 +1572,7 @@ static BOOL32 load_firmware_image(void)
 		printf("ERROR: cannot read firmware.bin\n");
 		return FAIL;
 	}
-
+	
 	if (num_bytes == FW_BUF_BYTES)
 	{
 		printf("ERROR: firmware image too large\n");
@@ -1580,7 +1580,7 @@ static BOOL32 load_firmware_image(void)
 	}
 
 	hc->firmware_image_bytes = num_bytes;
-	printf("firmware size: %u Bytes\n", num_bytes);
+
 	return OK;
 }
 
